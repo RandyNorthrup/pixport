@@ -61,8 +61,9 @@ Grab the file for your system from the [latest release](https://github.com/Randy
 Every file is listed with its SHA-256 in `SHA256SUMS.txt` on the release page.
 
 **First launch:** the builds are not code-signed yet, so your system will ask before opening them.
-On Windows, choose **More info → Run anyway** in the SmartScreen prompt. On macOS, right-click Pixport in
-Applications and choose **Open**, then **Open** again (or allow it in **System Settings → Privacy & Security**).
+On Windows, choose **More info → Run anyway** in the SmartScreen prompt. On macOS 15 and later, open Pixport
+once, close the warning, then go to **System Settings → Privacy & Security** and click **Open Anyway**. On macOS 12
+to 14, right-click Pixport in Applications, choose **Open**, then **Open** again.
 
 ### Install with pip instead
 
@@ -168,7 +169,7 @@ Exit status: `0` success, `1` an export failed (the others still run), `2` bad a
 
 ## Where settings are kept
 
-The app remembers the last profile, format, size, padding, artwork size, background and folders:
+The app remembers the last profile, format, size, padding, artwork size, background, folders, and the window's size and position:
 
 | System | Location |
 |---|---|

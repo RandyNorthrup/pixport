@@ -1,7 +1,7 @@
 # PLAN
 
 Design decisions, quality baseline and known limitations for Pixport. Updated for
-2.0.0 (2026-11-21).
+2.0.1 (2026-11-21).
 
 ## Quality gates
 
@@ -16,12 +16,12 @@ All run in CI (`.github/workflows/ci.yml`) and fail the build on findings.
 | Security | `bandit -c pyproject.toml -r src` | 0 findings |
 | Dependencies | `pip-audit --skip-editable` | no known vulnerabilities |
 | Secrets | gitleaks over full history | clean |
-| Tests | `pytest --cov --cov-fail-under=85` | 110 passing, 91 % line coverage, on Windows, macOS and Linux × Python 3.10 and 3.13 |
+| Tests | `pytest --cov --cov-fail-under=85` | 112 passing, 91 % line coverage, on Windows, macOS and Linux × Python 3.10 and 3.13 |
 | Packaged build | `release.yml`: PyInstaller build, then the app's `--self-test` | runs on every PR touching code or packaging, on all four targets |
 
 Key behaviours each have a test that was checked to fail when the behaviour is
 broken: padding, background colour, per-size ICO frames, iOS opacity, never
-overwriting, CLI format fallback, preview opacity, aspect lock, padding scaling.
+overwriting, CLI format fallback, preview opacity, aspect lock, padding scaling, saved window size.
 
 ## Decisions
 

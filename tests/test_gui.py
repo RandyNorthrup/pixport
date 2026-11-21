@@ -219,3 +219,26 @@ def test_self_test_passes(capsys: pytest.CaptureFixture[str]) -> None:
 
     assert main(["pixport", "--self-test"]) == 0
     assert "self-test passed" in capsys.readouterr().out
+
+
+def test_default_window_fits_small_screens() -> None:
+    from PySide6.QtCore import QSize
+
+    from pixport.gui.app import default_window_size
+
+    assert default_window_size(QSize(2560, 1400)) == QSize(1180, 760)
+    assert default_window_size(QSize(1024, 728)) == QSize(921, 655)
+
+
+def test_saved_window_size_is_restored(settings: QSettings, square_svg: Path) -> None:
+    """In 2.0.0 the launcher resized the window after restoring it, losing the saved size."""
+    from pixport.gui.app import open_window
+
+    first = open_window(["pixport"], settings)
+    first.resize(760, 540)
+    first.save_settings()
+    first.close()
+    second = open_window(["pixport", str(square_svg)], settings)
+    assert (second.width(), second.height()) == (760, 540)
+    assert second.source == square_svg
+    second.close()
