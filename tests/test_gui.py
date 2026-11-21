@@ -59,7 +59,12 @@ def _wait_idle(win: MainWindow, timeout: float = 20.0) -> None:
 
 def _wait_preview(win: MainWindow, timeout: float = 20.0) -> None:
     deadline = time.monotonic() + timeout
-    while not win.preview_idle or win._preview_shown < win._preview_seq:
+    # Settled means no debounce timer armed, nothing rendering or waiting, newest shown.
+    while (
+        win._preview_timer.isActive()
+        or not win.preview_idle
+        or win._preview_shown < win._preview_seq
+    ):
         QApplication.processEvents()
         if time.monotonic() > deadline:
             pytest.fail("preview did not finish")
