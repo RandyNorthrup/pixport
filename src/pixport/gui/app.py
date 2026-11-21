@@ -7,7 +7,7 @@ from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from PySide6.QtCore import QSettings, QSize, Qt, QThread, QTimer, QUrl, Slot
+from PySide6.QtCore import QByteArray, QSettings, QSize, Qt, QThread, QTimer, QUrl, Slot
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -53,6 +53,9 @@ REPO_URL = "https://github.com/RandyNorthrup/pixport"
 PREVIEW_DEBOUNCE_MS = 120
 SIDEBAR_WIDTH = 340
 DEFAULT_EDGE = 1024
+DEFAULT_WINDOW = QSize(1180, 760)
+#: Largest share of the screen a first-run window may take.
+SCREEN_FRACTION = 0.9
 MAX_PADDING = 4096
 MAX_LISTED_SIZES = 8
 
@@ -73,6 +76,14 @@ def app_icon() -> QIcon:
             with resources.as_file(ref) as path:
                 icon.addFile(str(path), QSize(size, size))
     return icon
+
+
+def default_window_size(available: QSize) -> QSize:
+    """First-run window size: the design size, shrunk to fit small screens."""
+    return QSize(
+        min(DEFAULT_WINDOW.width(), int(available.width() * SCREEN_FRACTION)),
+        min(DEFAULT_WINDOW.height(), int(available.height() * SCREEN_FRACTION)),
+    )
 
 
 def _named(widget: _W, name: str) -> _W:
@@ -351,8 +362,10 @@ class MainWindow(QMainWindow):
         if colour.isValid():
             self.background = (colour.red(), colour.green(), colour.blue())
         geometry = s.value("geometry")
-        if geometry is not None:
-            self.restoreGeometry(geometry)
+        if not (isinstance(geometry, QByteArray) and self.restoreGeometry(geometry)):
+            screen = QApplication.primaryScreen()
+            if screen is not None:
+                self.resize(default_window_size(screen.availableGeometry().size()))
         self._update_background_ui()
 
     def _int_setting(self, key: str, default: int) -> int:
@@ -753,6 +766,16 @@ def self_test() -> int:
     return 1 if failures else 0
 
 
+def open_window(args: Sequence[str], settings: QSettings | None = None) -> MainWindow:
+    """Show the main window and open the first file argument, if any."""
+    window = MainWindow(settings)
+    window.show()
+    files = [Path(a) for a in args[1:] if not a.startswith("-")]
+    if files:
+        window.load_source(files[0])
+    return window
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Open the window; an optional file argument is opened straight away."""
     args = list(sys.argv if argv is None else argv)
@@ -760,12 +783,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         create_app(args)
         return self_test()
     app = create_app(args)
-    window = MainWindow()
-    window.resize(1180, 760)
-    window.show()
-    files = [Path(a) for a in args[1:] if not a.startswith("-")]
-    if files:
-        window.load_source(files[0])
+    window = open_window(args)  # noqa: F841 - kept alive for the event loop
     return app.exec()
 
 

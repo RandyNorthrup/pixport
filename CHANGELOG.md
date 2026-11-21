@@ -5,6 +5,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-21
+
+### Fixed
+
+- **The window's size is remembered.** 2.0.0 restored the saved size and then
+  immediately replaced it with the default, so only the position survived a restart.
+- **The first window fits small screens.** The default 1180 × 760 window was larger
+  than a 1024 × 768 display; it now takes at most 90 % of the screen.
+- **macOS first-launch instructions** in the README now cover macOS 15 and later,
+  where right-click → Open no longer bypasses Gatekeeper for unsigned apps.
+
+### Changed
+
+- CI and release workflows use the current major versions of `actions/checkout`,
+  `actions/setup-python`, `actions/upload-artifact`, `actions/download-artifact` and
+  `gitleaks/gitleaks-action` (Node 24 runtimes). Downloaded build artifacts are now
+  checked against their digests and the release fails on a mismatch.
+
 ## [2.0.0] - 2026-11-21
 
 SVG-PNG-Tool is now **Pixport**: renamed, rebuilt as an installable package with a
@@ -108,5 +126,6 @@ PNG sets, and desktop, phone and tablet wallpapers. A later quality pass added s
 lint and type configuration, 12 tests, and fixes for three PNG-input defects (zoom and
 padding ignored, opaque background composited onto black, invalid `.iconset` names) in July 2026.
 
-[Unreleased]: https://github.com/RandyNorthrup/pixport/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/RandyNorthrup/pixport/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.0.1
 [2.0.0]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.0.0
