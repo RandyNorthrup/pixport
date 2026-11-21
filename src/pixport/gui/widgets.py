@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QPoint, QRectF, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QPoint, QRectF, QRunnable, Qt, Signal, Slot
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -23,7 +25,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from pixport.gui.theme import LIGHT, Theme
-from pixport.render import SUPPORTED_SUFFIXES
+from pixport.render import SUPPORTED_SUFFIXES, RenderOptions, SourceError, render_preview
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -236,3 +238,45 @@ class ExportWorker(QObject):
             self.succeeded.emit(written)
         finally:
             self.done.emit()
+
+
+class PreviewSignals(QObject):
+    """Carries a finished preview back to the UI thread."""
+
+    #: (request number, QImage or None, error message)
+    done = Signal(int, object, str)
+
+
+@dataclass(frozen=True)
+class PreviewRequest:
+    """Everything one preview render needs, captured from the widgets up front."""
+
+    seq: int
+    source: Path
+    canvas: tuple[int, int]
+    options: RenderOptions
+    max_size: tuple[int, int]
+
+
+class PreviewTask(QRunnable):
+    """Renders one preview on a pool thread. QImage is safe to build off the UI thread."""
+
+    def __init__(self, request: PreviewRequest, signals: PreviewSignals) -> None:
+        """Prepare the render; nothing is read from widgets after this."""
+        super().__init__()
+        self.request = request
+        self._signals = signals
+
+    def run(self) -> None:
+        """Render, then report the image or the error."""
+        req = self.request
+        image: QImage | None = None
+        error = ""
+        try:
+            img = render_preview(req.source, *req.canvas, req.options, req.max_size)
+            image = pil_to_qimage(img)
+        except (SourceError, ValueError, OSError) as exc:
+            error = str(exc)
+        # The window may have closed while this render ran; then nobody is listening.
+        with contextlib.suppress(RuntimeError):
+            self._signals.done.emit(req.seq, image, error)

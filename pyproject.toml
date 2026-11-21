@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Randy Northrup" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = [
     "svg", "png", "image-converter", "icon-generator", "ico", "icns", "favicon",
     "app-icons", "wallpaper", "resize", "pyside6", "resvg",
@@ -26,10 +26,10 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Graphics :: Graphics Conversion",
     "Typing :: Typed",
 ]
@@ -78,7 +78,7 @@ pixport = ["assets/*.png", "assets/*.svg", "py.typed"]
 
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 src = ["src", "tests"]
 extend-exclude = ["packaging/*.spec"]
@@ -140,7 +140,7 @@ docstring-code-format = true
 
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 mypy_path = "src"
 packages = ["pixport"]
 strict = true

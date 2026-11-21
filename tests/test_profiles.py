@@ -92,23 +92,48 @@ def test_ico_frames_rendered_per_size(tmp_path: Path, out_dir: Path) -> None:
 def test_macos_icns_sizes(square_svg: Path, out_dir: Path) -> None:
     (path,) = _run("macos-icns", _job(square_svg, out_dir, "icns"))
     with Image.open(path) as icns:
-        pixel_sizes = {w * scale for w, _, scale in icns.info["sizes"]}
-    assert pixel_sizes == set(pf.MACOS_ICNS_SIZES)
+        slots = set(icns.info["sizes"])
+    # Every point size at 1x and 2x, including the 16 px image Pillow's writer omits.
+    assert slots == {(pt, pt, sc) for pt in (16, 32, 128, 256, 512) for sc in (1, 2)} | {
+        (64, 64, 1)
+    }
+
+
+def test_icns_container_layout(square_svg: Path, out_dir: Path) -> None:
+    """Header, total length and one PNG element per iconutil type, in order."""
+    import struct
+
+    png_signature = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+    (path,) = _run("macos-icns", _job(square_svg, out_dir, "icns"))
+    data = path.read_bytes()
+    assert data[:4] == b"icns"
+    assert struct.unpack(">I", data[4:8])[0] == len(data)
+    offset, kinds = 8, []
+    while offset < len(data):
+        kind, length = (
+            data[offset : offset + 4],
+            struct.unpack(">I", data[offset + 4 : offset + 8])[0],
+        )
+        assert data[offset + 8 : offset + 16] == png_signature
+        kinds.append(kind)
+        offset += length
+    assert offset == len(data)
+    assert kinds == [k for k, _ in pf.ICNS_ELEMENTS]
 
 
 def test_icns_frames_rendered_per_size(tmp_path: Path, out_dir: Path) -> None:
     svg = tmp_path / "line.svg"
     svg.write_text(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">'
-        '<rect x="0" y="0" width="32" height="1" fill="#000"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">'
+        '<rect x="0" y="0" width="16" height="1" fill="#000"/></svg>',
         encoding="utf-8",
     )
     (path,) = _run("macos-icns", _job(svg, out_dir, "icns"))
     with Image.open(path) as icns:
         icns.size = (16, 16)
-        icns.load(scale=2)
-        assert icns.size == (32, 32)
-        assert icns.convert("RGBA").getpixel((16, 0))[3] == 255
+        icns.load(scale=1)
+        assert icns.size == (16, 16)
+        assert icns.convert("RGBA").getpixel((8, 0))[3] == 255
 
 
 # ── folder layouts ──────────────────────────────────────────────────────────
@@ -140,6 +165,41 @@ def test_android_layout(square_svg: Path, out_dir: Path, fmt: str) -> None:
     with Image.open(root / "playstore-icon.png") as store:
         assert store.size == (512, 512)
         assert store.format == "PNG"
+
+
+def test_android_adaptive_icon(square_svg: Path, out_dir: Path) -> None:
+    import xml.etree.ElementTree as ET
+
+    _run("android", _job(square_svg, out_dir, options=RenderOptions(background=BLUE)))
+    root = out_dir / "square-android"
+    for folder, legacy in pf.ANDROID_MIPMAPS:
+        layer = round(legacy * 108 / 48)
+        with Image.open(root / folder / "ic_launcher_foreground.png") as fg:
+            assert fg.size == (layer, layer)
+            # The red square sits inside the 66 dp safe zone, centred.
+            inset = round(layer * 21 / 108)
+            assert fg.getbbox() == (inset, inset, layer - inset, layer - inset)
+        with Image.open(root / folder / "ic_launcher_monochrome.png") as mono:
+            assert mono.convert("RGBA").getpixel((layer // 2, layer // 2)) == (255, 255, 255, 255)
+            assert mono.convert("RGBA").getpixel((0, 0))[3] == 0
+        with Image.open(root / folder / "ic_launcher_round.png") as rnd:
+            px = rnd.convert("RGBA")
+            assert px.size == (legacy, legacy)
+            assert px.getpixel((0, 0))[3] == 0  # outside the circle
+            assert px.getpixel((legacy // 2, 2))[:3] == BLUE  # circle edge, background colour
+            assert px.getpixel((legacy // 2, legacy // 2))[:3] == (255, 0, 0)
+
+    ns = "{http://schemas.android.com/apk/res/android}drawable"
+    for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
+        icon = ET.parse(root / "mipmap-anydpi-v26" / name).getroot()  # noqa: S314 - own output
+        assert icon.tag == "adaptive-icon"
+        assert [(c.tag, c.get(ns)) for c in icon] == [
+            ("background", "@color/ic_launcher_background"),
+            ("foreground", "@mipmap/ic_launcher_foreground"),
+            ("monochrome", "@mipmap/ic_launcher_monochrome"),
+        ]
+    colour = ET.parse(root / "values" / "ic_launcher_background.xml").getroot()  # noqa: S314
+    assert colour.find("color").text == "#0000ff"  # type: ignore[union-attr]
 
 
 def test_ios_appiconset(square_svg: Path, out_dir: Path) -> None:

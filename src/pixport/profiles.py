@@ -11,18 +11,20 @@ exists.
 
 from __future__ import annotations
 
+import io
 import json
 import shutil
+import struct
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
+
+from PIL import Image, ImageDraw
 
 from pixport.render import RenderOptions, flatten, is_vector, render
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from PIL import Image
 
 #: progress(done, total) is called after each file. It may raise to cancel.
 Progress = Callable[[int, int], None]
@@ -30,9 +32,22 @@ Progress = Callable[[int, int], None]
 # ── size tables ─────────────────────────────────────────────────────────────
 
 WINDOWS_ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
-#: Pixel sizes Pillow's ICNS writer stores (16 pt Retina to 512 pt Retina).
-#: It has no 16 px slot; macOS draws 16 pt at 1x from the 32 px image.
-MACOS_ICNS_SIZES = (32, 64, 128, 256, 512, 1024)
+#: ICNS element types and their pixel size: the PNG-based set iconutil writes,
+#: covering 16 to 512 pt at 1x and 2x (macOS 10.7 and later).
+ICNS_ELEMENTS = (
+    (b"icp4", 16),
+    (b"icp5", 32),
+    (b"ic11", 32),  # 16 pt @2x
+    (b"icp6", 64),
+    (b"ic12", 64),  # 32 pt @2x
+    (b"ic07", 128),
+    (b"ic08", 256),
+    (b"ic13", 256),  # 128 pt @2x
+    (b"ic09", 512),
+    (b"ic14", 512),  # 256 pt @2x
+    (b"ic10", 1024),  # 512 pt @2x
+)
+MACOS_ICNS_SIZES = tuple(sorted({px for _, px in ICNS_ELEMENTS}))
 LINUX_HICOLOR_SIZES = (16, 22, 24, 32, 48, 64, 96, 128, 256, 512)
 ANDROID_MIPMAPS = (
     ("mipmap-mdpi", 48),
@@ -42,6 +57,25 @@ ANDROID_MIPMAPS = (
     ("mipmap-xxxhdpi", 192),
 )
 ANDROID_PLAY_STORE = 512
+#: Adaptive icon layers are 108 dp square; launchers may mask or move them, and
+#: only the central 66 dp circle is guaranteed visible.
+ANDROID_ADAPTIVE_DP = 108
+ANDROID_SAFE_ZONE_DP = 66
+#: Legacy round icons keep the artwork inside this share of the circle.
+ANDROID_ROUND_ART = 0.62
+
+_ADAPTIVE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome"/>
+</adaptive-icon>
+"""
+_BACKGROUND_XML = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">{colour}</color>
+</resources>
+"""
 
 #: (idiom, point size, scale) for every slot of an Xcode AppIcon set,
 #: covering iPhone, iPad and the App Store marketing icon.
@@ -141,17 +175,35 @@ def _square(job: Job, size: int, *, opaque: bool = False) -> Image.Image:
     return render(job.source, size, size, job.options_at(size, size, opaque=opaque))
 
 
-def _write_multi_frame(job: Job, path: Path, fmt: str, sizes: tuple[int, ...]) -> None:
-    """Write ICO/ICNS with every size rendered on its own, not downsampled from one."""
-    frames = [_square(job, s) for s in sorted(sizes)]
+def _icon_frames(job: Job, sizes: tuple[int, ...]) -> dict[int, Image.Image]:
+    """Render every icon size on its own, not downsampled from one large image."""
+    frames = {s: _square(job, s) for s in sorted(set(sizes))}
     if not job.options.transparent:
-        frames = [flatten(f, job.options.background).convert("RGBA") for f in frames]
-    largest = frames[-1]
+        frames = {s: flatten(f, job.options.background).convert("RGBA") for s, f in frames.items()}
+    return frames
+
+
+def _write_ico_file(job: Job, path: Path, sizes: tuple[int, ...]) -> None:
+    frames = list(_icon_frames(job, sizes).values())
     path.parent.mkdir(parents=True, exist_ok=True)
-    if fmt == "ICO":
-        largest.save(path, "ICO", sizes=[f.size for f in frames], append_images=frames[:-1])
-    else:
-        largest.save(path, "ICNS", append_images=frames[:-1])
+    frames[-1].save(path, "ICO", sizes=[f.size for f in frames], append_images=frames[:-1])
+
+
+def icns_bytes(frames: dict[int, Image.Image]) -> bytes:
+    """Encode an .icns container from PNG frames keyed by pixel size.
+
+    Pillow's own writer has no 16 px element, so the container is built here:
+    a 'icns' header and one PNG element per type in :data:`ICNS_ELEMENTS`.
+    """
+    encoded: dict[int, bytes] = {}
+    for px, frame in frames.items():
+        buf = io.BytesIO()
+        frame.save(buf, "PNG", optimize=True)
+        encoded[px] = buf.getvalue()
+    body = b"".join(
+        kind + struct.pack(">I", 8 + len(encoded[px])) + encoded[px] for kind, px in ICNS_ELEMENTS
+    )
+    return b"icns" + struct.pack(">I", 8 + len(body)) + body
 
 
 # ── jobs and profiles ───────────────────────────────────────────────────────
@@ -237,14 +289,15 @@ def _write_convert(job: Job, progress: Progress) -> list[Path]:
 
 def _write_ico(job: Job, progress: Progress) -> list[Path]:
     out = unique_path(job.out_dir / f"{job.name}.ico")
-    _write_multi_frame(job, out, "ICO", WINDOWS_ICO_SIZES)
+    _write_ico_file(job, out, WINDOWS_ICO_SIZES)
     progress(1, 1)
     return [out]
 
 
 def _write_icns(job: Job, progress: Progress) -> list[Path]:
     out = unique_path(job.out_dir / f"{job.name}.icns")
-    _write_multi_frame(job, out, "ICNS", MACOS_ICNS_SIZES)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(icns_bytes(_icon_frames(job, MACOS_ICNS_SIZES)))
     progress(1, 1)
     return [out]
 
@@ -267,15 +320,76 @@ def _write_linux(job: Job, progress: Progress) -> list[Path]:
     return written
 
 
+def _hex_colour(rgb: tuple[int, int, int]) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+
+def _android_layers(job: Job, legacy_px: int) -> tuple[Image.Image, Image.Image, Image.Image]:
+    """Foreground, monochrome and round-legacy images for one density.
+
+    ``legacy_px`` is the density's 48 dp legacy size; adaptive layers are 108 dp.
+    """
+    layer_px = round(legacy_px * ANDROID_ADAPTIVE_DP / 48)
+    user = job.options_at(layer_px, layer_px)
+    inset = round(layer_px * (ANDROID_ADAPTIVE_DP - ANDROID_SAFE_ZONE_DP) / 2 / ANDROID_ADAPTIVE_DP)
+    foreground = render(
+        job.source,
+        layer_px,
+        layer_px,
+        replace(user, padding=inset + user.padding, transparent=True),
+    )
+    # Android 13 themed icons use only the alpha channel of the monochrome layer.
+    monochrome = Image.new("RGBA", foreground.size, (255, 255, 255, 0))
+    monochrome.putalpha(foreground.getchannel("A"))
+
+    round_icon = Image.new("RGBA", (legacy_px, legacy_px), (0, 0, 0, 0))
+    disc = Image.new("L", (legacy_px * 4, legacy_px * 4), 0)
+    ImageDraw.Draw(disc).ellipse((0, 0, legacy_px * 4 - 1, legacy_px * 4 - 1), fill=255)
+    disc = disc.resize((legacy_px, legacy_px), Image.Resampling.LANCZOS)
+    round_icon.paste((*job.options.background, 255), (0, 0), disc)
+    art_px = max(1, round(legacy_px * ANDROID_ROUND_ART))
+    art = render(
+        job.source, art_px, art_px, replace(job.options_at(art_px, art_px), transparent=True)
+    )
+    offset = (legacy_px - art_px) // 2
+    round_icon.alpha_composite(art, (offset, offset))
+    return foreground, monochrome, round_icon
+
+
 def _write_android(job: Job, progress: Progress) -> list[Path]:
     root = unique_path(job.out_dir / f"{job.name}-android")
     written: list[Path] = []
-    total = len(ANDROID_MIPMAPS) + 1
+    total = len(ANDROID_MIPMAPS) + 2
+    transparent = replace(job.options, transparent=True)
     for i, (folder, size) in enumerate(ANDROID_MIPMAPS, 1):
-        out = root / folder / f"ic_launcher.{job.fmt}"
-        save_image(_square(job, size), out, job.fmt, job.options)
-        written.append(out)
+        legacy = root / folder / f"ic_launcher.{job.fmt}"
+        save_image(_square(job, size), legacy, job.fmt, job.options)
+        foreground, monochrome, round_icon = _android_layers(job, size)
+        layers = {
+            f"ic_launcher_foreground.{job.fmt}": foreground,
+            f"ic_launcher_monochrome.{job.fmt}": monochrome,
+            f"ic_launcher_round.{job.fmt}": round_icon,
+        }
+        written.append(legacy)
+        for filename, img in layers.items():
+            out = root / folder / filename
+            save_image(img, out, job.fmt, transparent)
+            written.append(out)
         progress(i, total)
+
+    anydpi = root / "mipmap-anydpi-v26"
+    anydpi.mkdir(parents=True, exist_ok=True)
+    for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
+        (anydpi / name).write_text(_ADAPTIVE_XML, encoding="utf-8")
+        written.append(anydpi / name)
+    values = root / "values" / "ic_launcher_background.xml"
+    values.parent.mkdir(parents=True, exist_ok=True)
+    values.write_text(
+        _BACKGROUND_XML.format(colour=_hex_colour(job.options.background)), encoding="utf-8"
+    )
+    written.append(values)
+    progress(total - 1, total)
+
     # Google Play requires a 512 px 32-bit PNG regardless of the launcher format.
     store = root / "playstore-icon.png"
     save_image(_square(job, ANDROID_PLAY_STORE), store, "png", job.options)
@@ -334,7 +448,7 @@ def _write_web(job: Job, progress: Progress) -> list[Path]:
     root.mkdir(parents=True)
     opaque = job.options.opaque()
     steps: list[tuple[str, Callable[[Path], None]]] = [
-        ("favicon.ico", lambda p: _write_multi_frame(job, p, "ICO", FAVICON_ICO_SIZES)),
+        ("favicon.ico", lambda p: _write_ico_file(job, p, FAVICON_ICO_SIZES)),
         ("favicon-16x16.png", lambda p: save_image(_square(job, 16), p, "png", job.options)),
         ("favicon-32x32.png", lambda p: save_image(_square(job, 32), p, "png", job.options)),
         # iOS draws a black square behind transparent touch icons, so this one is opaque.
@@ -424,7 +538,7 @@ PROFILES: tuple[Profile, ...] = (
         "macos-icns",
         "macOS icon (.icns)",
         "App icons",
-        "One .icns holding 32 to 1024 px (16 to 512 pt, 1x and Retina).",
+        "One .icns holding 16 to 1024 px (16 to 512 pt, 1x and Retina).",
         ("icns",),
         _write_icns,
         _squares(MACOS_ICNS_SIZES),
@@ -442,7 +556,7 @@ PROFILES: tuple[Profile, ...] = (
         "android",
         "Android launcher icons",
         "App icons",
-        "mipmap-mdpi to mipmap-xxxhdpi ic_launcher, plus 512 px Play Store icon.",
+        "Adaptive icon layers and XML, legacy and round icons (mdpi-xxxhdpi), Play Store icon.",
         ("png", "webp"),
         _write_android,
         (*((s, s) for _, s in ANDROID_MIPMAPS), (ANDROID_PLAY_STORE, ANDROID_PLAY_STORE)),

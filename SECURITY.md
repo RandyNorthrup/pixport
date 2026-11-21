@@ -20,4 +20,5 @@ library through Pixport are welcome; they are usually forwarded upstream as well
 
 Release binaries are built by GitHub Actions from the tagged commit and listed
 with SHA-256 checksums in `SHA256SUMS.txt` on each release. They are not
-code-signed, so Windows SmartScreen and macOS Gatekeeper warn on first launch.
+code-signed, by decision, so Windows SmartScreen and macOS Gatekeeper warn on
+first launch. Compare a download against `SHA256SUMS.txt` before running it.
