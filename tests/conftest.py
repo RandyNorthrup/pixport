@@ -1,58 +1,78 @@
 """Shared fixtures.
 
-A QApplication must exist before any QWidget or QColor is constructed, and Qt
-allows only one per process — so it is created once per session here rather
-than per test.
+Core tests never touch Qt. GUI tests request ``qt_app``, which creates the one
+QApplication a process may have.
 """
 
 from __future__ import annotations
 
+import gzip
 import os
-import sys
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
-# Qt needs a platform plugin even when nothing is displayed. Set before the
-# first Qt import or widget construction fails on headless machines.
+# Qt needs a platform plugin even when nothing is shown.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+RED_SQUARE_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+    '<rect width="100" height="100" fill="#ff0000"/></svg>'
+)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def qt_app() -> object:
-    """Create the single QApplication the whole test session shares."""
+    """The single QApplication shared by every GUI test."""
     from PySide6.QtWidgets import QApplication
 
     return QApplication.instance() or QApplication([])
 
 
 @pytest.fixture
-def square_svg(tmp_path: Path) -> str:
-    """A 100x100 SVG whose content fills the entire viewport.
+def square_svg(tmp_path: Path) -> Path:
+    """A 100x100 SVG filled edge to edge with red.
 
-    Filling the viewport is what makes padding and zoom observable: any inset
-    or scale applied by the renderer shows up as transparent border pixels.
+    Filling the viewport makes padding and zoom observable: any inset shows up
+    as border pixels that are not red.
     """
     path = tmp_path / "square.svg"
-    path.write_text(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
-        '<rect x="0" y="0" width="100" height="100" fill="#ff0000"/>'
-        "</svg>",
-        encoding="utf-8",
-    )
-    return str(path)
+    path.write_text(RED_SQUARE_SVG, encoding="utf-8")
+    return path
 
 
 @pytest.fixture
-def square_png(tmp_path: Path) -> str:
-    """A 100x100 fully opaque red PNG, matching square_svg.
+def square_svgz(tmp_path: Path) -> Path:
+    """The same red square, gzip-compressed."""
+    path = tmp_path / "square.svgz"
+    path.write_bytes(gzip.compress(RED_SQUARE_SVG.encode()))
+    return path
 
-    Used to prove the PNG input path behaves the same as the SVG path.
-    """
-    from PIL import Image
 
+@pytest.fixture
+def wide_svg(tmp_path: Path) -> Path:
+    """A 200x100 SVG, to check aspect ratio is preserved."""
+    path = tmp_path / "wide.svg"
+    path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">'
+        '<rect width="200" height="100" fill="#0000ff"/></svg>',
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.fixture
+def square_png(tmp_path: Path) -> Path:
+    """A 100x100 opaque red PNG, the raster twin of square_svg."""
     path = tmp_path / "square.png"
     Image.new("RGBA", (100, 100), (255, 0, 0, 255)).save(path)
-    return str(path)
+    return path
+
+
+@pytest.fixture
+def out_dir(tmp_path: Path) -> Path:
+    """An empty output folder."""
+    path = tmp_path / "out"
+    path.mkdir()
+    return path

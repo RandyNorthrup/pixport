@@ -1,142 +1,183 @@
-"""Regression tests for the three defects found by independent review.
+"""Rendering geometry, colours and source handling.
 
-Each test names the bug it pins. They are written against the SVG path first,
-which was always correct, so the assertion doubles as a statement of the
-behaviour the PNG path is supposed to match.
+Every geometry test runs against both an SVG and a PNG input: the two paths
+must produce the same composition. (In 1.x the PNG path silently ignored zoom,
+padding and the background colour.)
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QColor
+from PIL import Image
 
-import svg_converter as sc
+from pixport.render import (
+    MAX_EDGE,
+    RenderOptions,
+    SourceError,
+    check_source,
+    flatten,
+    parse_color,
+    render,
+    render_preview,
+    source_size,
+)
 
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
-TARGET = 100
 
 
-def _corner(img: object) -> tuple[int, ...]:
-    """Top-left pixel — outside the content when padding or zoom applies."""
-    return tuple(img.getpixel((0, 0)))  # type: ignore[attr-defined]
+@pytest.fixture(params=["square_svg", "square_png"])
+def square(request: pytest.FixtureRequest) -> Path:
+    """Run the test once with the SVG and once with the PNG square."""
+    path: Path = request.getfixturevalue(request.param)
+    return path
 
 
-def _centre(img: object) -> tuple[int, ...]:
-    return tuple(img.getpixel((TARGET // 2, TARGET // 2)))  # type: ignore[attr-defined]
+def test_full_fit_fills_canvas(square: Path) -> None:
+    img = render(square, 100, 100, RenderOptions())
+    assert img.mode == "RGBA"
+    assert img.getpixel((0, 0)) == (*RED, 255)
+    assert img.getpixel((99, 99)) == (*RED, 255)
 
 
-# ── bug 1: PNG inputs ignored zoom and padding ──────────────────────────
+def test_padding_insets_artwork(square: Path) -> None:
+    img = render(square, 100, 100, RenderOptions(padding=20))
+    assert img.getpixel((5, 5))[3] == 0
+    assert img.getbbox() == (20, 20, 80, 80)
+    assert img.getpixel((50, 50)) == (*RED, 255)
 
 
-def test_svg_padding_insets_content(square_svg: str) -> None:
-    """Baseline: the SVG path has always honoured padding."""
-    img = sc.render_svg_to_pillow(square_svg, TARGET, TARGET, padding=20, transparent=True)
-    assert _corner(img)[3] == 0, "padding should leave the corner transparent"
-    assert _centre(img)[:3] == RED
+def test_zoom_shrinks_artwork(square: Path) -> None:
+    img = render(square, 100, 100, RenderOptions(zoom=0.5))
+    assert img.getpixel((10, 10))[3] == 0
+    assert img.getbbox() == (25, 25, 75, 75)
 
 
-def test_png_padding_insets_content(square_png: str) -> None:
-    """Bug 1: padding was dropped, so the image filled edge to edge."""
-    img = sc.render_png_to_pillow(square_png, TARGET, TARGET, padding=20, transparent=True)
-    assert _corner(img)[3] == 0, "padding must leave the corner transparent"
-    assert _centre(img)[:3] == RED
+@pytest.mark.parametrize("zoom", [1.5, 5.0])
+def test_zoom_never_enlarges_past_fit(square: Path, zoom: float) -> None:
+    assert render(square, 100, 100, RenderOptions(zoom=zoom)).getbbox() == (0, 0, 100, 100)
 
 
-def test_png_zoom_shrinks_content(square_png: str) -> None:
-    """Bug 1: zoom was dropped, so the image always filled the canvas."""
-    img = sc.render_png_to_pillow(square_png, TARGET, TARGET, zoom=0.5, transparent=True)
-    assert _corner(img)[3] == 0, "zoom 0.5 must leave the corner transparent"
-    assert _centre(img)[:3] == RED
+def test_zoom_has_lower_bound(square: Path) -> None:
+    tiny = render(square, 100, 100, RenderOptions(zoom=0.0))
+    assert tiny.getbbox() == (45, 45, 55, 55)  # clamped to 10 %
 
 
-def test_png_zoom_never_overscales(square_png: str) -> None:
-    """Zoom above 1.0 is clamped, matching the SVG renderer."""
-    at_one = sc.render_png_to_pillow(square_png, TARGET, TARGET, zoom=1.0)
-    above = sc.render_png_to_pillow(square_png, TARGET, TARGET, zoom=5.0)
-    assert at_one.size == above.size == (TARGET, TARGET)
-
-
-# ── bug 2: opaque export ignored the chosen background colour ───────────
-
-
-def test_png_opaque_uses_chosen_background(square_png: str) -> None:
-    """Bug 2: convert("RGB") composited onto black, discarding bg_color."""
-    img = sc.render_png_to_pillow(
-        square_png,
-        TARGET,
-        TARGET,
-        padding=20,
-        transparent=False,
-        bg_color=QColor("blue"),
-    )
+def test_opaque_uses_chosen_background(square: Path) -> None:
+    img = render(square, 100, 100, RenderOptions(padding=20, transparent=False, background=BLUE))
     assert img.mode == "RGB"
-    assert _corner(img) == BLUE, "padding area must use the selected background"
-    assert _centre(img) == RED
+    assert img.getpixel((2, 2)) == BLUE
+    assert img.getpixel((50, 50)) == RED
 
 
-def test_svg_opaque_uses_chosen_background(square_svg: str) -> None:
-    """Baseline: the SVG path already did this correctly."""
-    img = sc.render_svg_to_pillow(
-        square_svg,
-        TARGET,
-        TARGET,
-        padding=20,
-        transparent=False,
-        bg_color=QColor("blue"),
+def test_aspect_ratio_is_preserved(wide_svg: Path) -> None:
+    img = render(wide_svg, 100, 100, RenderOptions())
+    assert img.getbbox() == (0, 25, 100, 75)
+
+
+def test_raster_is_upscaled_to_fit(square_png: Path) -> None:
+    img = render(square_png, 400, 400, RenderOptions())
+    assert img.getbbox() == (0, 0, 400, 400)
+
+
+def test_svgz_is_supported(square_svgz: Path) -> None:
+    assert render(square_svgz, 50, 50, RenderOptions()).getpixel((25, 25)) == (*RED, 255)
+
+
+@pytest.mark.parametrize("suffix", [".jpg", ".webp", ".bmp", ".gif", ".tiff"])
+def test_other_raster_inputs(tmp_path: Path, suffix: str) -> None:
+    path = tmp_path / f"in{suffix}"
+    Image.new("RGB", (40, 20), RED).save(path)
+    assert source_size(path) == (40, 20)
+    img = render(path, 80, 80, RenderOptions())
+    assert img.getbbox() == (0, 20, 80, 60)
+
+
+def test_svg_source_size(wide_svg: Path) -> None:
+    assert source_size(wide_svg) == (200, 100)
+
+
+@pytest.mark.parametrize(("w", "h"), [(0, 10), (10, 0), (MAX_EDGE + 1, 10)])
+def test_rejects_bad_canvas(square_svg: Path, w: int, h: int) -> None:
+    with pytest.raises(ValueError, match="outside"):
+        render(square_svg, w, h, RenderOptions())
+
+
+def test_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(SourceError, match="not found"):
+        check_source(tmp_path / "nope.svg")
+
+
+def test_unsupported_extension(tmp_path: Path) -> None:
+    path = tmp_path / "notes.txt"
+    path.write_text("hi", encoding="utf-8")
+    with pytest.raises(SourceError, match="Unsupported"):
+        check_source(path)
+
+
+def test_broken_svg_raises_source_error(tmp_path: Path) -> None:
+    path = tmp_path / "broken.svg"
+    path.write_text("<svg", encoding="utf-8")
+    with pytest.raises(SourceError, match="Cannot render SVG"):
+        render(path, 10, 10, RenderOptions())
+
+
+def test_broken_raster_raises_source_error(tmp_path: Path) -> None:
+    path = tmp_path / "broken.png"
+    path.write_bytes(b"not a png")
+    with pytest.raises(SourceError, match="Cannot read image"):
+        source_size(path)
+
+
+def test_edited_svg_is_remeasured(tmp_path: Path) -> None:
+    path = tmp_path / "live.svg"
+    path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>', encoding="utf-8"
     )
-    assert _corner(img) == BLUE
+    assert source_size(path) == (10, 10)
+    path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"/>', encoding="utf-8"
+    )
+    stat = path.stat()
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+    assert source_size(path) == (30, 20)
 
 
-# ── bug 3: .iconset filenames iconutil does not accept ──────────────────
+def test_preview_matches_export_composition(square_svg: Path) -> None:
+    options = RenderOptions(padding=100, zoom=0.8)
+    full = render(square_svg, 1000, 500, options)
+    preview = render_preview(square_svg, 1000, 500, options, (200, 200))
+    assert preview.size == (200, 100)
+    full_box, preview_box = full.getbbox(), preview.getbbox()
+    assert full_box is not None
+    assert preview_box is not None
+    assert [round(v / 5) for v in full_box] == list(preview_box)
 
 
-def test_iconset_entries_are_valid_iconutil_names() -> None:
-    """Bug 3: icon_64x64.png and icon_1024x1024.png are not valid members."""
-    entries = sc.macos_iconset_entries(sc.MAC_ICON_SIZES)
-    names = {name for name, _ in entries}
-
-    valid = set()
-    for pt in (16, 32, 128, 256, 512):
-        valid.add(f"icon_{pt}x{pt}.png")
-        valid.add(f"icon_{pt}x{pt}@2x.png")
-
-    assert names == valid
-    assert "icon_64x64.png" not in names
-    assert "icon_1024x1024.png" not in names
+def test_preview_never_upscales(square_svg: Path) -> None:
+    assert render_preview(square_svg, 50, 50, RenderOptions(), (500, 500)).size == (50, 50)
 
 
-def test_iconset_entries_pixel_sizes_match_names() -> None:
-    """An @2x entry must be rendered at twice its point size."""
-    for name, px in sc.macos_iconset_entries(sc.MAC_ICON_SIZES):
-        point = int(name.split("_")[1].split("x")[0])
-        expected = point * 2 if "@2x" in name else point
-        assert px == expected, f"{name} should be {expected}px, got {px}"
+def test_parse_color() -> None:
+    assert parse_color("#0f172a") == (15, 23, 42)
+    assert parse_color(" white ") == (255, 255, 255)
+    assert parse_color("rgb(1,2,3)") == (1, 2, 3)
+    with pytest.raises(ValueError, match="Not a colour"):
+        parse_color("not-a-colour")
 
 
-# ── existing behaviour that must not regress ────────────────────────────
-
-
-def test_unique_path_avoids_collision(tmp_path: Path) -> None:
-    target = tmp_path / "icon.ico"
-    target.write_bytes(b"x")
-    assert sc.unique_path(target).name == "icon_1.ico"
-
-
-def test_pillow_flatten_composites_onto_background() -> None:
-    from PIL import Image
-
-    transparent = Image.new("RGBA", (10, 10), (255, 0, 0, 0))
-    flat = sc.pillow_flatten(transparent, (0, 0, 255, 255))
+def test_flatten_composites_onto_background() -> None:
+    clear = Image.new("RGBA", (4, 4), (255, 0, 0, 0))
+    flat = flatten(clear, BLUE)
     assert flat.mode == "RGB"
-    assert flat.getpixel((5, 5)) == BLUE
+    assert flat.getpixel((1, 1)) == BLUE
+    rgb = Image.new("RGB", (2, 2), RED)
+    assert flatten(rgb, BLUE) is rgb
 
 
-@pytest.mark.parametrize("fmt_sizes", [[16, 32], [64]])
-def test_save_windows_ico_writes_file(
-    square_svg: str, tmp_path: Path, fmt_sizes: list[int]
-) -> None:
-    sc.save_windows_ico(square_svg, tmp_path, fmt_sizes, True, 1.0, 0, QColor("white"))
-    assert (tmp_path / "icon.ico").exists()
+def test_options_opaque_copy() -> None:
+    opts = RenderOptions(padding=3, zoom=0.5, transparent=True, background=BLUE)
+    assert opts.opaque() == RenderOptions(3, 0.5, False, BLUE)
