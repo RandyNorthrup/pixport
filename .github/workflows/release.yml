@@ -111,9 +111,10 @@ jobs:
       - name: Release notes from CHANGELOG
         run: |
           version="${GITHUB_REF_NAME#v}"
+          # Literal match: awk would turn "\[" in a string into "[", a bracket expression.
           awk -v v="$version" '
-            $0 ~ "^## \[" v "\]" {grab=1; next}
-            grab && /^## \[/ {exit}
+            index($0, "## [" v "]") == 1 {grab=1; next}
+            grab && index($0, "## ") == 1 {exit}
             grab {print}
           ' CHANGELOG.md > notes.md
           test -s notes.md
