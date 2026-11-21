@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import shutil
 import struct
 from collections.abc import Callable
@@ -61,6 +62,9 @@ ANDROID_PLAY_STORE = 512
 #: only the central 66 dp circle is guaranteed visible.
 ANDROID_ADAPTIVE_DP = 108
 ANDROID_SAFE_ZONE_DP = 66
+#: The safe zone is a circle; artwork is fitted to the square inscribed in it so
+#: corners stay visible under every launcher mask.
+ANDROID_SAFE_SQUARE_DP = ANDROID_SAFE_ZONE_DP / math.sqrt(2)
 #: Legacy round icons keep the artwork inside this share of the circle.
 ANDROID_ROUND_ART = 0.62
 
@@ -331,7 +335,9 @@ def _android_layers(job: Job, legacy_px: int) -> tuple[Image.Image, Image.Image,
     """
     layer_px = round(legacy_px * ANDROID_ADAPTIVE_DP / 48)
     user = job.options_at(layer_px, layer_px)
-    inset = round(layer_px * (ANDROID_ADAPTIVE_DP - ANDROID_SAFE_ZONE_DP) / 2 / ANDROID_ADAPTIVE_DP)
+    inset = round(
+        layer_px * (ANDROID_ADAPTIVE_DP - ANDROID_SAFE_SQUARE_DP) / 2 / ANDROID_ADAPTIVE_DP
+    )
     foreground = render(
         job.source,
         layer_px,

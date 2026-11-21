@@ -277,6 +277,12 @@ class PreviewTask(QRunnable):
             image = pil_to_qimage(img)
         except (SourceError, ValueError, OSError) as exc:
             error = str(exc)
-        # The window may have closed while this render ran; then nobody is listening.
-        with contextlib.suppress(RuntimeError):
-            self._signals.done.emit(req.seq, image, error)
+        # Broad catch is deliberate: the window waits for this signal before it
+        # starts the next preview, so any failure must still report back.
+        except Exception as exc:  # noqa: BLE001
+            error = f"{type(exc).__name__}: {exc}"
+        finally:
+            # The emitter is owned by this task as well as the window, so it is
+            # still alive if the window closed; Qt drops the queued call then.
+            with contextlib.suppress(RuntimeError):
+                self._signals.done.emit(req.seq, image, error)

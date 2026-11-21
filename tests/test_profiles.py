@@ -176,8 +176,11 @@ def test_android_adaptive_icon(square_svg: Path, out_dir: Path) -> None:
         layer = round(legacy * 108 / 48)
         with Image.open(root / folder / "ic_launcher_foreground.png") as fg:
             assert fg.size == (layer, layer)
-            # The red square sits inside the 66 dp safe zone, centred.
-            inset = round(layer * 21 / 108)
+            # The red square fits the square inscribed in the 66 dp safe circle, centred,
+            # so its corners survive a circular launcher mask.
+            inset = round(layer * (108 - 66 / 2**0.5) / 2 / 108)
+            corner = (inset - layer / 2) * 2**0.5
+            assert abs(corner) <= layer * 33 / 108 + 1
             assert fg.getbbox() == (inset, inset, layer - inset, layer - inset)
         with Image.open(root / folder / "ic_launcher_monochrome.png") as mono:
             assert mono.convert("RGBA").getpixel((layer // 2, layer // 2)) == (255, 255, 255, 255)

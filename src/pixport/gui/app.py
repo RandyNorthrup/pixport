@@ -135,7 +135,8 @@ class MainWindow(QMainWindow):
         self._preview_timer.setInterval(PREVIEW_DEBOUNCE_MS)
         self._preview_timer.timeout.connect(self.refresh_preview)
         # One render in flight at a time; while it runs only the newest request waits.
-        self._preview_signals = PreviewSignals(self)
+        # No Qt parent: the emitter must outlive the window while a render is running.
+        self._preview_signals = PreviewSignals()
         self._preview_signals.done.connect(self._on_preview_done)
         self._preview_seq = 0
         self._preview_shown = 0
@@ -414,8 +415,10 @@ class MainWindow(QMainWindow):
         s.setValue("geometry", self.saveGeometry())
 
     def closeEvent(self, event: object) -> None:
-        """Save settings and stop a running export before closing."""
+        """Save settings, drop pending previews and stop a running export."""
         self.save_settings()
+        self._preview_pending = None
+        self._preview_signals.done.disconnect(self._on_preview_done)
         if self._worker is not None:
             self._worker.cancel()
         if self._thread is not None:

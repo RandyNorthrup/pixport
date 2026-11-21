@@ -311,3 +311,25 @@ def test_preview_render_thread_is_not_ui_thread(
     _wait_preview(window)
     assert threads
     assert threading.get_ident() not in threads
+
+
+def test_preview_recovers_from_unexpected_error(
+    window: MainWindow, square_svg: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An error outside the expected types must not leave the preview stuck busy."""
+    real = widgets.render_preview
+    calls = {"n": 0}
+
+    def flaky(*args: object, **kwargs: object) -> object:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise MemoryError("canvas too large")
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(widgets, "render_preview", flaky)
+    window.load_source(square_svg)
+    _wait_preview(window)
+    assert "MemoryError" in window.canvas._message
+    window.refresh_preview()
+    _wait_preview(window)
+    assert window.canvas._pixmap is not None

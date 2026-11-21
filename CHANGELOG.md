@@ -16,7 +16,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 - **Android adaptive icons.** The `android` profile now also writes the
   `ic_launcher_foreground` and `ic_launcher_monochrome` layers for every density
-  (artwork inside the 66 dp safe zone), `mipmap-anydpi-v26/ic_launcher.xml` and
+  (artwork, corners included, inside the 66 dp safe circle),
+  `mipmap-anydpi-v26/ic_launcher.xml` and
   `ic_launcher_round.xml`, `values/ic_launcher_background.xml` with the background
   colour, and a round legacy `ic_launcher_round` icon. The monochrome layer gives
   Android 13 themed icons. One export now writes 24 files instead of 6.

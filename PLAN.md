@@ -16,7 +16,7 @@ All run in CI (`.github/workflows/ci.yml`) and fail the build on findings.
 | Security | `bandit -c pyproject.toml -r src` | 0 findings |
 | Dependencies | `pip-audit --skip-editable` | no known vulnerabilities |
 | Secrets | gitleaks over full history | clean |
-| Tests | `pytest --cov --cov-fail-under=85` | 118 passing, 91 % line coverage, on Windows, macOS and Linux × Python 3.11 and 3.14 |
+| Tests | `pytest --cov --cov-fail-under=85` | 119 passing, 91 % line coverage, on Windows, macOS and Linux × Python 3.11 and 3.14 |
 | Packaged build | `release.yml`: PyInstaller build, then the app's `--self-test` | runs on every PR touching code or packaging, on all four targets |
 
 Key behaviours each have a test that was checked to fail when the behaviour is
@@ -64,7 +64,8 @@ newest request waits behind it, so dragging a slider over a heavy SVG never queu
 stale work or blocks the window.
 
 **Android adaptive icons are derived from the one source.** The foreground layer
-fits the artwork into the 66 dp safe zone of the 108 dp layer, the background is
+fits the artwork into the square inscribed in the 66 dp safe circle of the 108 dp
+layer, so no launcher mask clips its corners; the background is
 the chosen colour, and the monochrome layer reuses the foreground's alpha.
 
 **`--self-test` in the shipped app.** Proves a frozen build can render SVG, write
