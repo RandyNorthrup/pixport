@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640"><defs>
+<linearGradient id="bgg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d0f17"/><stop offset="1" stop-color="#151931"/></linearGradient>
+<radialGradient id="glow1" cx="0.12" cy="0.1" r="0.6"><stop offset="0" stop-color="#7c6cff" stop-opacity="0.45"/><stop offset="1" stop-color="#7c6cff" stop-opacity="0"/></radialGradient>
+<radialGradient id="glow2" cx="0.92" cy="0.95" r="0.6"><stop offset="0" stop-color="#22d3ee" stop-opacity="0.32"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+<linearGradient id="tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c6cff"/><stop offset="1" stop-color="#22c3e6"/></linearGradient>
+<linearGradient id="word" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c9c3ff"/></linearGradient>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.035"/></pattern>
+</defs><rect width="1280" height="640" fill="url(#bgg)"/><rect width="1280" height="640" fill="url(#grid)"/><rect width="1280" height="640" fill="url(#glow1)"/><rect width="1280" height="640" fill="url(#glow2)"/>
+<svg x="90" y="92" width="132" height="132" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c6cff"/>
+      <stop offset="0.55" stop-color="#5b8cff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="aink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d5dfc"/>
+      <stop offset="1" stop-color="#14b8d4"/>
+    </linearGradient>
+    <linearGradient id="asheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="alift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1b1446" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#abg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#asheen)"/>
+  <rect x="332" y="92" width="80" height="80" rx="18" fill="#ffffff" opacity="0.72" filter="url(#alift)"/>
+  <rect x="228" y="148" width="132" height="132" rx="28" fill="#ffffff" opacity="0.86" filter="url(#alift)"/>
+  <rect x="92" y="228" width="196" height="196" rx="38" fill="#ffffff" filter="url(#alift)"/>
+  <path d="M120 392 L176 316 L214 366 L238 338 L262 392 Z" fill="url(#aink)"/>
+  <circle cx="238" cy="282" r="18" fill="url(#aink)"/>
+</svg>
+<text x="244" y="186" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="104" font-weight="700" fill="url(#word)" letter-spacing="-2">Pixport</text>
+<text x="96" y="296" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="40" font-weight="600" fill="#ffffff">One image in. Every format, size,</text>
+<text x="96" y="348" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="40" font-weight="600" fill="#ffffff">screen and platform out.</text>
+<rect x="96" y="404" width="204" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="198.0" y="430.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">Convert &amp; resize</text>
+<rect x="312" y="404" width="76" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="350.0" y="430.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">.ico</text>
+<rect x="400" y="404" width="87" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="443.5" y="430.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">.icns</text>
+<rect x="499" y="404" width="87" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="542.5" y="430.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">Linux</text>
+<rect x="598" y="404" width="108" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="652.0" y="430.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">Android</text>
+<rect x="718" y="404" width="65" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="750.5" y="430.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">iOS</text>
+<rect x="96" y="456" width="119" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="155.5" y="482.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">Favicons</text>
+<rect x="227" y="456" width="140" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="297.0" y="482.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">Wallpapers</text>
+<rect x="379" y="456" width="65" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="411.5" y="482.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">PNG</text>
+<rect x="456" y="456" width="65" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="488.5" y="482.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">JPG</text>
+<rect x="533" y="456" width="76" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="571.0" y="482.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">WEBP</text>
+<rect x="621" y="456" width="65" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="653.5" y="482.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">PDF</text>
+<rect x="698" y="456" width="65" height="40" rx="20.0" fill="#ffffff" fill-opacity="0.07" stroke="#ffffff" stroke-opacity="0.16"/>
+<text x="730.5" y="482.84" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#dfe3f5" text-anchor="middle">CLI</text>
+<g opacity="1.00"><rect x="840" y="130" width="200" height="200" rx="40.0" fill="url(#tile)" stroke="#ffffff" stroke-opacity="0.25"/>
+<path d="M876.0 294.0 L924.0 220.0 L960.0 266.0 L980.0 242.0 L1004.0 294.0 Z" fill="#ffffff" fill-opacity="0.92"/>
+<circle cx="980.0" cy="190.0" r="16.0" fill="#ffffff" fill-opacity="0.92"/></g>
+<g opacity="0.91"><rect x="1056" y="210" width="120" height="120" rx="24.0" fill="url(#tile)" stroke="#ffffff" stroke-opacity="0.25"/>
+<path d="M1077.6 308.4 L1106.4 264.0 L1128.0 291.6 L1140.0 277.2 L1154.4 308.4 Z" fill="#ffffff" fill-opacity="0.92"/>
+<circle cx="1140.0" cy="246.0" r="9.6" fill="#ffffff" fill-opacity="0.92"/></g>
+<g opacity="0.82"><rect x="1192" y="258" width="72" height="72" rx="14.4" fill="url(#tile)" stroke="#ffffff" stroke-opacity="0.25"/>
+<path d="M1205.0 317.0 L1222.2 290.4 L1235.2 307.0 L1242.4 298.3 L1251.0 317.0 Z" fill="#ffffff" fill-opacity="0.92"/>
+<circle cx="1242.4" cy="279.6" r="5.8" fill="#ffffff" fill-opacity="0.92"/></g>
+<g opacity="0.73"><rect x="1280" y="286" width="44" height="44" rx="8.8" fill="url(#tile)" stroke="#ffffff" stroke-opacity="0.25"/>
+<path d="M1287.9 322.1 L1298.5 305.8 L1306.4 315.9 L1310.8 310.6 L1316.1 322.1 Z" fill="#ffffff" fill-opacity="0.92"/>
+<circle cx="1310.8" cy="299.2" r="3.5" fill="#ffffff" fill-opacity="0.92"/></g>
+<text x="96" y="574" font-family="Segoe UI Variable Display, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="22" fill="#9aa1b8">Free desktop app and CLI for Windows, macOS and Linux · github.com/RandyNorthrup/pixport</text>
+</svg>

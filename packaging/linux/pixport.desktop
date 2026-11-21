@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Pixport
+GenericName=Image Converter
+Comment=Export one image to any format, size, screen or platform
+Exec=pixport %f
+Icon=pixport
+Terminal=false
+Categories=Graphics;RasterGraphics;VectorGraphics;Development;
+MimeType=image/svg+xml;image/png;image/jpeg;image/webp;image/bmp;image/gif;image/tiff;
+Keywords=svg;png;icon;ico;icns;favicon;wallpaper;convert;resize;
+StartupWMClass=pixport

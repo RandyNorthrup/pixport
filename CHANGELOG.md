@@ -1,84 +1,112 @@
 # Changelog
 
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow
+[Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Fixed — three defects in the PNG input path
+## [2.0.0] - 2026-11-21
 
-Found by independent review of the retrofit diff, verified against source, and
-fixed only after a regression test for each was confirmed to **fail** against
-the pre-fix code.
+SVG-PNG-Tool is now **Pixport**: renamed, rebuilt as an installable package with a
+command line, and released as binaries for Windows, macOS and Linux.
 
-- **PNG inputs now honour zoom and padding.** The old `png_render_to_pillow`
-  resized straight to the target size, silently discarding both controls, so
-  the same sliders worked for an SVG input and did nothing for a PNG one.
-  Replaced by module-level `render_png_to_pillow`, which mirrors
-  `render_svg_to_pillow`'s geometry exactly.
-- **Opaque PNG export now uses the chosen background colour.** `convert("RGB")`
-  composites onto black; the SVG path only escaped this because the background
-  was already baked in upstream. The PNG path now composites onto `bg_color`.
-- **macOS `.iconset` filenames now match what `iconutil` accepts.** Both
-  writers emitted `icon_<n>x<n>.png` for every configured size, producing
-  invalid members like `icon_64x64.png` and `icon_1024x1024.png` — so the
-  fallback could fail in exactly the case it exists to cover. New
-  `macos_iconset_entries` returns the required base/`@2x` pairs.
+### Breaking changes
 
-### Added — test suite
+- **New name and commands.** Run `pixport` (or `pixport-gui`, or `python -m pixport`)
+  instead of `python svg_converter.py`. Install with
+  `pipx install git+https://github.com/RandyNorthrup/pixport.git` or download a release.
+- **SVG renderer is now resvg** (via `resvg-py`) instead of CairoSVG. No Cairo or GTK
+  install is needed on any system. resvg supports more of SVG than CairoSVG, so some
+  files render differently, usually more correctly.
+- **Python 3.10 or later** is required (was 3.9).
+- **Output names and folders changed** so the results drop straight into each platform:
 
-- 12 tests under `tests/`, run in CI headless via `QT_QPA_PLATFORM=offscreen`.
-- Each of the three bug tests was checked against the old code first: exactly
-  those three failed, the other nine passed. A regression test that passes on
-  broken code proves nothing.
+  | Profile | 1.x wrote | 2.0 writes |
+  |---|---|---|
+  | Custom export | `custom/name_<w>x<h>.<ext>` | `name_<w>x<h>.<ext>` |
+  | Windows icon | `windows/icon.ico` | `name.ico` |
+  | macOS icon | `macos/icon.icns` | `name.icns` |
+  | Linux | `linux/name/name_<n>x<n>.png` | `name-linux/hicolor/<n>x<n>/apps/name.png` |
+  | Android | `android/name/name_<n>x<n>.png` | `name-android/mipmap-*/ic_launcher.png` + `playstore-icon.png` |
+  | iOS | `ios/name/name_<n>x<n>.png` | `name-ios/AppIcon.appiconset/Icon-<n>.png` + `Contents.json` |
+  | Wallpapers | `wallpapers/<kind>/name/…` | `name-wallpapers-<kind>/…` |
+
+- **Profiles that need it no longer offer JPG and BMP.** Linux, Android and iOS icon
+  sets were offered as JPG or BMP, which those platforms do not accept. Linux and iOS
+  write PNG; Android writes PNG or WEBP.
+- **Size lists were updated** for current devices (see below). The macOS `.icns` no
+  longer claims a 16 px image; see Fixed.
 
 ### Added
 
-- Strict quality gate configuration in `pyproject.toml` covering ruff, mypy,
-  and bandit. Rules that are disabled carry an inline reason.
-- `.pre-commit-config.yaml` and `.github/workflows/quality.yml`, running the
-  same gate set locally and in CI.
-- `PLAN.md` recording assumptions, resolved decisions, and tracked debt.
-- Type annotations on all 23 functions, including Qt slots and the nested
-  export helpers inside `on_create`.
-- Docstrings on every public function, the main window class, and its slots.
-- Development and quality-gate sections in `README.md`.
-- `.git-blame-ignore-revs`, so the bulk reformat does not obscure history.
-
-### Changed
-
-- Reformatted with `ruff format`. Verified semantically neutral by AST
-  comparison — the only non-whitespace change was added trailing commas.
-- Split the combined `import` statement and sorted imports.
-- `Optional[X]` replaced with `X | None` under
-  `from __future__ import annotations`.
-- `subprocess.run` now passes `check=False` explicitly at both call sites. The
-  return code was already inspected immediately after; the explicit argument
-  documents that `iconutil`'s stderr is deliberately preserved for the error
-  message.
-- Merged two nested conditionals and removed a redundant assignment before
-  `return`.
-
-### Removed
-
-- Unused `os` import (zero usages).
-- Unused `**kwargs` parameter from `png_render_to_pillow`. All four call sites
-  pass exactly three positional arguments.
+- **Command line** with the same profiles as the app: several inputs and profiles in
+  one run, `--width`, `--height`, `--padding`, `--zoom`, `--background`, `--format`,
+  `--list-profiles`, `--quiet`, and exit codes 0 / 1 / 2.
+- **Website favicons profile**: `favicon.ico`, PNG favicons, `apple-touch-icon.png`,
+  192 and 512 px manifest icons, `site.webmanifest`, `favicon.svg` for SVG sources,
+  and a `head-snippet.html`.
+- **iOS `AppIcon.appiconset`** with `Contents.json` covering every iPhone, iPad and
+  App Store slot (20 to 1024 px, including 83.5 pt iPad Pro), always opaque as App
+  Store Connect requires.
+- **Android `mipmap-mdpi` to `mipmap-xxxhdpi`** layout and a 512 px Play Store icon.
+- **Linux `hicolor` theme layout**, plus `scalable/apps/name.svg` for SVG sources.
+- **Formats:** WEBP and TIFF output; JPG, WEBP, BMP, GIF, TIFF, ICO and SVGZ input.
+- **More sizes:** Windows `.ico` adds 20, 40 and 96 px. Desktop wallpapers add 1366×768,
+  3440×1440 and 5120×2880. Phone wallpapers add 1080×2400, 1179×2556, 1290×2796 and
+  1440×3200. Tablet wallpapers add 1640×2360 and 2048×2732.
+- **Redesigned window**: light and dark themes that follow the system, a preview on a
+  transparency checkerboard that fills the window and stays sharp on high-DPI screens,
+  drag and drop, aspect-ratio lock, a list of every size the profile writes, a hint
+  explaining when the background colour applies, File and Help menus, and keyboard
+  shortcuts (Ctrl+O, Ctrl+E).
+- **Exports run in the background** with a progress bar and Cancel, then offer
+  **Show folder**.
+- **Settings are remembered** between launches: profile, format, size, padding,
+  artwork size, background, folders and window position.
+- **Release binaries** built by GitHub Actions for Windows x64, macOS Apple silicon,
+  macOS Intel and Linux x64, each verified by running the packaged app's
+  `--self-test` before publishing, with SHA-256 checksums.
+- **Linux installer script** that adds a menu entry and icons for the current user.
+- Test suite grown from 12 to 110 tests across rendering, every profile's files and
+  folders, the command line and the window; CI runs it on Windows, macOS and Linux
+  with Python 3.10 and 3.13.
 
 ### Fixed
 
-- `mypy` configuration targeted Python 3.9, which is below mypy's supported
-  floor and caused it to error out. Now 3.10; the application's own runtime
-  target is unchanged and still enforced by ruff.
+- **Padding no longer swallows small icons.** 1.x applied the same absolute padding at
+  every size, so 64 px of padding left a 16 px icon with a 1 px artwork. Padding is
+  now set at the largest output size and scaled for each smaller one.
+- **Small icon sizes are sharp.** `.ico` and `.icns` frames are each rendered at their
+  own size instead of being shrunk from one 256 px or 1024 px image.
+- **The preview matches the export.** For PNG sources the preview stretched the image
+  to the canvas and ignored padding, zoom and background; it now uses the export code.
+  It also shows formats without transparency (JPG, BMP, PDF, iOS) on their background.
+- **The size boxes no longer mislead.** Width and height stayed editable for icon and
+  wallpaper profiles, changed the preview, and were then ignored by the export. They
+  now appear only for Convert / resize.
+- **The app starts without Cairo.** 1.x exited on systems without the Cairo library,
+  which included every stock Windows install.
+- **The macOS `.icns` contents are described correctly.** Pillow's ICNS writer has no
+  16 px slot; 2.0 renders the 32 to 1024 px images it does store and the docs say so.
+- **The window no longer freezes** during long exports.
+- **A broken or unsupported file shows a message** instead of an error inside the
+  preview, and a file that is not an image is refused when opened.
 
-### Notes
+### Removed
 
-Lint findings went from 220 to 0 under the strict configuration, and dead-code
-findings from 2 to 0. No behaviour was changed: the GUI was constructed and a
-full export run (ICO plus a PNG size set) was executed against a test SVG after
-the retrofit.
+- The `iconutil` fallback for `.icns`. Pillow writes `.icns` on every system, so the
+  macOS-only subprocess path was dead code in practice.
+- `requirements.txt` and the hand-written `VERSION.txt`; dependencies live in
+  `pyproject.toml` and the Windows version resource is generated from the package
+  version at build time.
 
-Two functions, `__init__` and `on_create`, still exceed complexity thresholds.
-The relevant rules are ignored for that file only, annotated as deferred rather
-than accepted, with the refactor sequence recorded in `PLAN.md`. Splitting a
-119-statement export handler with no test suite in place was judged the larger
-risk.
+## 1.0.0 - 2025-09-26 (SVG-PNG-Tool, untagged)
+
+The last SVG-PNG-Tool release: a single-file PySide6 app rendering SVG with CairoSVG,
+with profiles for custom export, Windows `.ico`, macOS `.icns`, Linux, Android and iOS
+PNG sets, and desktop, phone and tablet wallpapers. A later quality pass added strict
+lint and type configuration, 12 tests, and fixes for three PNG-input defects (zoom and
+padding ignored, opaque background composited onto black, invalid `.iconset` names) in July 2026.
+
+[Unreleased]: https://github.com/RandyNorthrup/pixport/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.0.0

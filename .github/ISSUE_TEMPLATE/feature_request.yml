@@ -1,0 +1,15 @@
+name: Feature request
+description: A new profile, format, size or option
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you need to export?
+      description: Platform, sizes, folder layout, or a link to the spec you are following.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What do you do today instead?
