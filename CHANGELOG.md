@@ -20,8 +20,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 - CI and release workflows use the current major versions of `actions/checkout`,
   `actions/setup-python`, `actions/upload-artifact`, `actions/download-artifact` and
-  `gitleaks/gitleaks-action` (Node 24 runtimes). Downloaded build artifacts are now
-  checked against their digests and the release fails on a mismatch.
+  `gitleaks/gitleaks-action` (Node 24 runtimes). With `download-artifact` v8 the
+  publish job verifies each build artifact's digest and fails on a mismatch.
 
 ## [2.0.0] - 2026-11-21
 

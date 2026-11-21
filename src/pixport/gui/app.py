@@ -362,7 +362,10 @@ class MainWindow(QMainWindow):
         if colour.isValid():
             self.background = (colour.red(), colour.green(), colour.blue())
         geometry = s.value("geometry")
-        if not (isinstance(geometry, QByteArray) and self.restoreGeometry(geometry)):
+        # Native backends return QByteArray; accept bytes too in case a PySide6
+        # version or settings format converts it.
+        restorable = isinstance(geometry, (QByteArray, bytes, bytearray))
+        if not (restorable and self.restoreGeometry(QByteArray(geometry))):
             screen = QApplication.primaryScreen()
             if screen is not None:
                 self.resize(default_window_size(screen.availableGeometry().size()))
