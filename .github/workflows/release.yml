@@ -87,7 +87,7 @@ jobs:
           cp packaging/linux/pixport.desktop packaging/linux/install.sh LICENSE "stage/$name/"
           tar -C stage -czf "out/$name.tar.gz" "$name"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: pixport-${{ matrix.label }}
           path: out/*
