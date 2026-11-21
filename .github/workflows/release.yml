@@ -1,0 +1,123 @@
+name: release
+
+# Builds the desktop app for every platform and proves each build works by
+# running its --self-test (exports the bundled logo through every profile).
+# Pull requests build and upload artifacts; a v* tag also publishes a release.
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'packaging/**'
+      - 'pyproject.toml'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, label: windows-x64 }
+          - { os: macos-latest, label: macos-arm64 }
+          - { os: macos-15-intel, label: macos-x64 }
+          # Oldest supported runner: the bundle runs on distros with this glibc or newer.
+          - { os: ubuntu-22.04, label: linux-x64 }
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+      - name: Qt system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[build]"
+      - name: Version
+        id: v
+        shell: bash
+        run: echo "version=$(python -c 'import pixport; print(pixport.__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: test "${GITHUB_REF_NAME#v}" = "${{ steps.v.outputs.version }}"
+      - name: Build
+        run: pyinstaller packaging/pixport.spec --noconfirm
+
+      - name: Self-test and package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ./dist/Pixport.exe --self-test > selftest.txt 2>&1 || { cat selftest.txt; exit 1; }
+          cat selftest.txt
+          mkdir out
+          cp dist/Pixport.exe "out/Pixport-${{ steps.v.outputs.version }}-${{ matrix.label }}.exe"
+
+      - name: Self-test and package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ./dist/Pixport.app/Contents/MacOS/pixport --self-test
+          mkdir out
+          hdiutil create -volname Pixport -srcfolder dist/Pixport.app -ov -format UDZO \
+            "out/Pixport-${{ steps.v.outputs.version }}-${{ matrix.label }}.dmg"
+
+      - name: Self-test and package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ./dist/pixport/pixport --self-test
+          name="Pixport-${{ steps.v.outputs.version }}-${{ matrix.label }}"
+          mkdir -p "stage/$name" out
+          cp -R dist/pixport "stage/$name/pixport"
+          cp -R packaging/icons/hicolor "stage/$name/hicolor"
+          cp packaging/linux/pixport.desktop packaging/linux/install.sh LICENSE "stage/$name/"
+          tar -C stage -czf "out/$name.tar.gz" "$name"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: pixport-${{ matrix.label }}
+          path: out/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v6
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Checksums
+        working-directory: assets
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Release notes from CHANGELOG
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \[" v "\]" {grab=1; next}
+            grab && /^## \[/ {exit}
+            grab {print}
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" assets/* --title "Pixport $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
