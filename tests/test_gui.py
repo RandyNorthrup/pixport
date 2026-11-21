@@ -57,6 +57,21 @@ def _wait_idle(win: MainWindow, timeout: float = 20.0) -> None:
     QApplication.processEvents()
 
 
+def _wait_preview(win: MainWindow, timeout: float = 20.0) -> None:
+    deadline = time.monotonic() + timeout
+    # Settled means no debounce timer armed, nothing rendering or waiting, newest shown.
+    while (
+        win._preview_timer.isActive()
+        or not win.preview_idle
+        or win._preview_shown < win._preview_seq
+    ):
+        QApplication.processEvents()
+        if time.monotonic() > deadline:
+            pytest.fail("preview did not finish")
+        time.sleep(0.005)
+    QApplication.processEvents()
+
+
 def _select(win: MainWindow, profile_id: str) -> None:
     win.profile_combo.setCurrentIndex(win.profile_combo.findData(profile_id))
 
@@ -69,7 +84,7 @@ def test_starts_empty(window: MainWindow) -> None:
 
 def test_load_source_previews(window: MainWindow, square_svg: Path) -> None:
     assert window.load_source(square_svg)
-    window.refresh_preview()
+    _wait_preview(window)
     assert window.canvas._pixmap is not None
     assert window.export_btn.isEnabled()
     assert "100 × 100" in window.source_meta.text()  # noqa: RUF001
@@ -135,7 +150,7 @@ def test_export_runs_on_worker_thread(window: MainWindow, square_svg: Path, out_
     assert window.cancel_btn.isVisibleTo(window)
     _wait_idle(window)
     assert (out_dir / "square-android" / "playstore-icon.png").is_file()
-    assert "Exported 6 files" in window.status_text.text()
+    assert "Exported 24 files" in window.status_text.text()
     assert window.show_folder_btn.isVisibleTo(window)
     assert window.export_btn.isVisibleTo(window)
 
@@ -242,3 +257,84 @@ def test_saved_window_size_is_restored(settings: QSettings, square_svg: Path) ->
     assert (second.width(), second.height()) == (760, 540)
     assert second.source == square_svg
     second.close()
+
+
+def test_preview_renders_off_the_ui_thread(window: MainWindow, square_svg: Path) -> None:
+    """Bursts of changes keep one render running and only the newest waiting."""
+    window.load_source(square_svg)
+    for value in range(10, 60, 5):
+        window.padding_spin.setValue(value)
+        window.refresh_preview()
+        assert window._preview_pending is None or window._preview_busy
+    _wait_preview(window)
+    assert window._preview_shown == window._preview_seq
+    assert window.canvas._pixmap is not None
+
+
+def test_preview_error_shows_message(window: MainWindow, tmp_path: Path) -> None:
+    svg = tmp_path / "later-broken.svg"
+    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>', "utf-8")
+    window.load_source(svg)
+    _wait_preview(window)
+    svg.write_text("<svg", encoding="utf-8")
+    import os
+
+    st = svg.stat()
+    os.utime(svg, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+    window.refresh_preview()
+    _wait_preview(window)
+    assert window.canvas._pixmap is None
+    assert "Cannot preview" in window.canvas._message
+
+
+def test_closing_during_preview_is_safe(settings: QSettings, square_svg: Path) -> None:
+    win = MainWindow(settings)
+    win.load_source(square_svg)
+    win.close()
+    win.deleteLater()
+    QApplication.processEvents()
+    from PySide6.QtCore import QThreadPool
+
+    assert QThreadPool.globalInstance().waitForDone(20_000)
+    QApplication.processEvents()
+
+
+def test_preview_render_thread_is_not_ui_thread(
+    window: MainWindow, square_svg: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+
+    real = widgets.render_preview
+    threads: list[int] = []
+
+    def spy(*args: object, **kwargs: object) -> object:
+        threads.append(threading.get_ident())
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(widgets, "render_preview", spy)
+    window.load_source(square_svg)
+    _wait_preview(window)
+    assert threads
+    assert threading.get_ident() not in threads
+
+
+def test_preview_recovers_from_unexpected_error(
+    window: MainWindow, square_svg: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An error outside the expected types must not leave the preview stuck busy."""
+    real = widgets.render_preview
+    calls = {"n": 0}
+
+    def flaky(*args: object, **kwargs: object) -> object:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise MemoryError("canvas too large")
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(widgets, "render_preview", flaky)
+    window.load_source(square_svg)
+    _wait_preview(window)
+    assert "MemoryError" in window.canvas._message
+    window.refresh_preview()
+    _wait_preview(window)
+    assert window.canvas._pixmap is not None

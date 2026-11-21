@@ -7,8 +7,18 @@ from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from PySide6.QtCore import QByteArray, QSettings, QSize, Qt, QThread, QTimer, QUrl, Slot
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QKeySequence
+from PySide6.QtCore import (
+    QByteArray,
+    QSettings,
+    QSize,
+    Qt,
+    QThread,
+    QThreadPool,
+    QTimer,
+    QUrl,
+    Slot,
+)
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -32,7 +42,13 @@ from PySide6.QtWidgets import (
 
 from pixport import APP_ID, APP_NAME, __version__
 from pixport.gui.theme import apply_theme, system_theme
-from pixport.gui.widgets import ExportWorker, PreviewCanvas, pil_to_qimage
+from pixport.gui.widgets import (
+    ExportWorker,
+    PreviewCanvas,
+    PreviewRequest,
+    PreviewSignals,
+    PreviewTask,
+)
 from pixport.profiles import OPAQUE_FORMATS, PROFILES, Job, Profile, get_profile
 from pixport.render import (
     MAX_EDGE,
@@ -42,7 +58,6 @@ from pixport.render import (
     SourceError,
     check_source,
     is_vector,
-    render_preview,
     source_size,
 )
 
@@ -119,6 +134,14 @@ class MainWindow(QMainWindow):
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(PREVIEW_DEBOUNCE_MS)
         self._preview_timer.timeout.connect(self.refresh_preview)
+        # One render in flight at a time; while it runs only the newest request waits.
+        # No Qt parent: the emitter must outlive the window while a render is running.
+        self._preview_signals = PreviewSignals()
+        self._preview_signals.done.connect(self._on_preview_done)
+        self._preview_seq = 0
+        self._preview_shown = 0
+        self._preview_busy = False
+        self._preview_pending: PreviewTask | None = None
 
         self._build_ui()
         self._build_menu()
@@ -392,8 +415,10 @@ class MainWindow(QMainWindow):
         s.setValue("geometry", self.saveGeometry())
 
     def closeEvent(self, event: object) -> None:
-        """Save settings and stop a running export before closing."""
+        """Save settings, drop pending previews and stop a running export."""
         self.save_settings()
+        self._preview_pending = None
+        self._preview_signals.done.disconnect(self._on_preview_done)
         if self._worker is not None:
             self._worker.cancel()
         if self._thread is not None:
@@ -618,21 +643,49 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def refresh_preview(self) -> None:
-        """Render the preview now."""
+        """Ask for a new preview; it is rendered on a pool thread."""
         if self.source is None:
             self.canvas.set_message("Drop an SVG or image here\nor click to open")
             return
         profile = self.current_profile()
-        width, height = profile.preview_size(self.width_spin.value(), self.height_spin.value())
-        max_w, max_h = self.canvas.available_pixels()
-        try:
-            img = render_preview(self.source, width, height, self.render_options(), (max_w, max_h))
-        except (SourceError, ValueError, OSError) as exc:
-            self.canvas.set_message(f"Cannot preview this file\n\n{exc}")
+        canvas = profile.preview_size(self.width_spin.value(), self.height_spin.value())
+        self._preview_seq += 1
+        request = PreviewRequest(
+            self._preview_seq,
+            self.source,
+            canvas,
+            self.render_options(),
+            self.canvas.available_pixels(),
+        )
+        task = PreviewTask(request, self._preview_signals)
+        if self._preview_busy:
+            self._preview_pending = task
             return
-        qimg = pil_to_qimage(img)
-        qimg.setDevicePixelRatio(self.canvas.devicePixelRatioF())
-        self.canvas.set_image(qimg)
+        self._start_preview(task)
+
+    def _start_preview(self, task: PreviewTask) -> None:
+        self._preview_busy = True
+        QThreadPool.globalInstance().start(task)
+
+    @property
+    def preview_idle(self) -> bool:
+        """True when no preview render is running or waiting."""
+        return not self._preview_busy and self._preview_pending is None
+
+    @Slot(int, object, str)
+    def _on_preview_done(self, seq: int, image: QImage | None, error: str) -> None:
+        self._preview_busy = False
+        if self._preview_pending is not None:
+            task, self._preview_pending = self._preview_pending, None
+            self._start_preview(task)
+        if seq < self._preview_shown or self.source is None:
+            return
+        self._preview_shown = seq
+        if image is None:
+            self.canvas.set_message(f"Cannot preview this file\n\n{error}")
+            return
+        image.setDevicePixelRatio(self.canvas.devicePixelRatioF())
+        self.canvas.set_image(image)
 
     @Slot()
     def export(self) -> None:

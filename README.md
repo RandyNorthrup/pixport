@@ -7,7 +7,7 @@
   <a href="https://github.com/RandyNorthrup/pixport/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/RandyNorthrup/pixport/total?color=22b8d4&label=downloads"></a>
   <a href="https://github.com/RandyNorthrup/pixport/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/RandyNorthrup/pixport/ci.yml?branch=main&label=ci"></a>
   <img alt="Windows, macOS and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-5b8cff">
-  <img alt="Python 3.10 to 3.13" src="https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-3776ab">
+  <img alt="Python 3.11 to 3.14" src="https://img.shields.io/badge/python-3.11%20%E2%80%93%203.14-3776ab">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-14b8a6"></a>
   <a href="https://github.com/sponsors/RandyNorthrup"><img alt="Sponsor on GitHub" src="https://img.shields.io/badge/sponsor-GitHub-db61a2"></a>
 </p>
@@ -37,7 +37,7 @@
 ## What it does
 
 - **Convert and resize** any SVG, SVGZ, PNG, JPG, WEBP, BMP, GIF, TIFF or ICO to PNG, JPG, WEBP, BMP, TIFF or PDF at any size up to 16384 px, with the aspect ratio locked or free.
-- **App icons for every platform in one click**: a multi-size Windows `.ico`, a macOS `.icns`, a Linux `hicolor` icon theme, Android `mipmap-*` launcher icons with the Play Store icon, and an Xcode `AppIcon.appiconset` with its `Contents.json`.
+- **App icons for every platform in one click**: a multi-size Windows `.ico`, a macOS `.icns`, a Linux `hicolor` icon theme, Android adaptive, round and legacy launcher icons with the Play Store icon, and an Xcode `AppIcon.appiconset` with its `Contents.json`.
 - **Website favicons**: `favicon.ico`, PNG favicons, `apple-touch-icon.png`, manifest icons, `site.webmanifest` and a ready-to-paste `<head>` snippet.
 - **Wallpapers** at 7 desktop, 8 phone and 5 tablet resolutions, portrait and landscape.
 - **Every size is rendered on its own.** A 16 px icon is drawn at 16 px from the vector, not shrunk from a 256 px image, so thin lines stay crisp.
@@ -60,14 +60,14 @@ Grab the file for your system from the [latest release](https://github.com/Randy
 
 Every file is listed with its SHA-256 in `SHA256SUMS.txt` on the release page.
 
-**First launch:** the builds are not code-signed yet, so your system will ask before opening them.
+**First launch:** the builds are not code-signed (and will not be), so your system will ask before opening them.
 On Windows, choose **More info → Run anyway** in the SmartScreen prompt. On macOS 15 and later, open Pixport
 once, close the warning, then go to **System Settings → Privacy & Security** and click **Open Anyway**. On macOS 12
 to 14, right-click Pixport in Applications, choose **Open**, then **Open** again.
 
 ### Install with pip instead
 
-Needs Python 3.10 or later. This gives you both the app and the command line:
+Needs Python 3.11 or later. This gives you both the app and the command line:
 
 ```bash
 pipx install git+https://github.com/RandyNorthrup/pixport.git
@@ -101,9 +101,9 @@ pixport --help       # command line
 |---|---|---|---|---|
 | Convert / resize | `convert` | `name_<w>x<h>.<ext>` | the width × height you choose | PNG, JPG, WEBP, BMP, TIFF, PDF |
 | Windows icon | `windows-ico` | `name.ico` | 16, 20, 24, 32, 40, 48, 64, 96, 128, 256 | ICO |
-| macOS icon | `macos-icns` | `name.icns` | 32, 64, 128, 256, 512, 1024 | ICNS |
+| macOS icon | `macos-icns` | `name.icns` | 16, 32, 64, 128, 256, 512, 1024 | ICNS |
 | Linux icon theme | `linux` | `name-linux/hicolor/<n>x<n>/apps/name.png`, plus `scalable/apps/name.svg` for SVG sources | 16, 22, 24, 32, 48, 64, 96, 128, 256, 512 | PNG |
-| Android launcher icons | `android` | `name-android/mipmap-{mdpi…xxxhdpi}/ic_launcher.<ext>` and `playstore-icon.png` | 48, 72, 96, 144, 192, and 512 for the Play Store | PNG, WEBP |
+| Android launcher icons | `android` | `name-android/` with `mipmap-{mdpi…xxxhdpi}/`, `mipmap-anydpi-v26/`, `values/` and `playstore-icon.png` (details below) | legacy 48 to 192, adaptive layers 108 to 432, 512 for the Play Store | PNG, WEBP |
 | iOS / iPadOS app icon | `ios` | `name-ios/AppIcon.appiconset/` with `Icon-<n>.png` and `Contents.json` | 20, 29, 40, 58, 60, 76, 80, 87, 120, 152, 167, 180, 1024 | PNG, always opaque |
 | Website favicons | `web` | `name-web/` with the files listed below | 16, 32, 48, 180, 192, 512 | PNG and ICO |
 | Desktop wallpapers | `wallpaper-desktop` | `name-wallpapers-desktop/name_<w>x<h>.<ext>` | 1280×720, 1366×768, 1920×1080, 2560×1440, 3440×1440, 3840×2160, 5120×2880 | PNG, JPG, WEBP, BMP |
@@ -115,9 +115,9 @@ pixport --help       # command line
 
 **Platform details**
 
-- **macOS `.icns`** holds 32 to 1024 px images, which cover 16 to 512 pt at 1x and Retina. There is no separate 16 px image; macOS draws 16 pt at 1x from the 32 px one.
+- **macOS `.icns`** holds the same PNG elements Apple's `iconutil` writes: 16 to 512 pt at 1x and Retina (16 to 1024 px), each rendered at its own size.
 - **iOS** sets are always opaque because App Store Connect rejects icons with an alpha channel. Transparent areas and padding are filled with the background colour. `Contents.json` lists every iPhone, iPad and App Store slot, so the set works with any Xcode version.
-- **Android** exports legacy launcher icons. Adaptive icons (separate foreground and background layers with XML) are not generated; Android Studio's Image Asset tool can build those from the 512 px icon.
+- **Android** output drops into `app/src/main/res/`. Each `mipmap-<density>/` folder holds `ic_launcher` (legacy, 48 dp), `ic_launcher_round` (the artwork on a circle of the background colour), and the adaptive icon layers `ic_launcher_foreground` and `ic_launcher_monochrome` (108 dp; the artwork, corners included, fits inside the 66 dp safe circle that every launcher mask keeps visible; the monochrome layer drives Android 13 themed icons). `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` combine the layers, and `values/ic_launcher_background.xml` holds the background colour. Point `android:icon` and `android:roundIcon` at `@mipmap/ic_launcher` and `@mipmap/ic_launcher_round`.
 - **Website favicons** contain `favicon.ico` (16, 32, 48), `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png` (180, opaque), `icon-192.png`, `icon-512.png`, `site.webmanifest` (named after the file, with the background colour as theme colour), `favicon.svg` when the source is an `.svg`, and `head-snippet.html` with the matching `<link>` tags.
 - **PDF** output contains the rendered image at 72 dpi, so the page measures the pixel size in points. Vector paths are not kept.
 - **JPG** is written at quality 95 without chroma subsampling, so edges in logos stay clean. **WEBP** is lossless. **TIFF** uses LZW compression.

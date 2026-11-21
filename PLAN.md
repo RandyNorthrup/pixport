@@ -1,7 +1,7 @@
 # PLAN
 
 Design decisions, quality baseline and known limitations for Pixport. Updated for
-2.0.1 (2026-11-21).
+2.1.0 (2026-11-21).
 
 ## Quality gates
 
@@ -16,12 +16,13 @@ All run in CI (`.github/workflows/ci.yml`) and fail the build on findings.
 | Security | `bandit -c pyproject.toml -r src` | 0 findings |
 | Dependencies | `pip-audit --skip-editable` | no known vulnerabilities |
 | Secrets | gitleaks over full history | clean |
-| Tests | `pytest --cov --cov-fail-under=85` | 112 passing, 91 % line coverage, on Windows, macOS and Linux × Python 3.10 and 3.13 |
+| Tests | `pytest --cov --cov-fail-under=85` | 119 passing, 91 % line coverage, on Windows, macOS and Linux × Python 3.11 and 3.14 |
 | Packaged build | `release.yml`: PyInstaller build, then the app's `--self-test` | runs on every PR touching code or packaging, on all four targets |
 
 Key behaviours each have a test that was checked to fail when the behaviour is
 broken: padding, background colour, per-size ICO frames, iOS opacity, never
-overwriting, CLI format fallback, preview opacity, aspect lock, padding scaling, saved window size.
+overwriting, CLI format fallback, preview opacity, aspect lock, padding scaling, saved window size,
+preview rendered off the UI thread.
 
 ## Decisions
 
@@ -54,26 +55,32 @@ transparent iOS icons, Play Store icon always PNG.
 passed to them). The command line comes with the pip install, where a console is
 guaranteed; a windowed Windows executable has no stdout.
 
+**`.icns` is written by Pixport, not Pillow.** Pillow's writer has no 16 px element.
+The container is simple (a header plus typed PNG elements, the set `iconutil`
+writes), so `profiles.icns_bytes` builds it directly and a test checks the layout.
+
+**Previews render on Qt's thread pool.** One render runs at a time and only the
+newest request waits behind it, so dragging a slider over a heavy SVG never queues
+stale work or blocks the window.
+
+**Android adaptive icons are derived from the one source.** The foreground layer
+fits the artwork into the square inscribed in the 66 dp safe circle of the 108 dp
+layer, so no launcher mask clips its corners; the background is
+the chosen colour, and the monochrome layer reuses the foreground's alpha.
+
 **`--self-test` in the shipped app.** Proves a frozen build can render SVG, write
 every format and construct its window on each OS before a release is published.
 Writes only to a temporary folder.
 
 ## Known limitations
 
-- **Unsigned binaries.** Windows SmartScreen and macOS Gatekeeper warn on first
-  launch. Signing needs credentials outside the repo (Azure Artifact Signing for
-  Windows, an Apple Developer ID plus notarisation for macOS). Deferred by choice.
+- **Unsigned binaries, by decision.** The project will not code-sign. Windows
+  SmartScreen and macOS Gatekeeper warn on first launch; the README explains how to
+  open the app, and every release lists SHA-256 checksums built by CI from the tag.
 - **Not on PyPI yet.** Install from git. Publishing needs a trusted publisher set up
   on pypi.org. Deferred by choice.
-- **No 16 px image in `.icns`.** Pillow's writer has no slot for it; macOS scales the
-  32 px image. Acceptable: Apple's own templates rely on the same Retina image.
-- **No Android adaptive icons.** Those need separate foreground and background art
-  plus XML. Legacy `mipmap` icons and the Play Store icon are generated.
 - **PDF output is raster.** resvg renders to pixels; vector PDF would need a second
   renderer.
-- **The preview renders on the UI thread**, debounced by 120 ms and capped at the
-  preview's size. Very heavy SVGs (large filters) can make dragging a slider feel
-  slow. Moving it to a worker is the fix if it shows up in practice.
 - **Linux bundle targets glibc 2.35+** (built on Ubuntu 22.04).
 
 ## Risks
@@ -85,7 +92,6 @@ Writes only to a temporary folder.
 
 ## Next
 
-1. Code signing and notarisation, once credentials are set up.
-2. PyPI release via trusted publishing.
-3. Batch mode in the app (several sources in one export; the CLI already does it).
-4. Optional Android adaptive icon output from a foreground/background pair.
+1. PyPI release via trusted publishing.
+2. Batch mode in the app (several sources in one export; the CLI already does it).
+3. Separate foreground and background artwork for Android adaptive icons.

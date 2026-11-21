@@ -56,6 +56,8 @@ def main() -> int:
             window.zoom_slider.setValue(60 if profile_id.startswith("wallpaper") else 100)
             app.processEvents()
             window.refresh_preview()
+            while not window.preview_idle or window._preview_shown < window._preview_seq:  # noqa: SLF001
+                app.processEvents()
             app.processEvents()
             window.grab().save(str(out_dir / f"{profile_id}-{name}.png"))
         window.close()

@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 .eggs/
 .venv/
+.venv*/
 venv/
 
 # Build output (PyInstaller, setuptools)

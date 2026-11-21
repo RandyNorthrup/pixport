@@ -5,6 +5,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-21
+
+### Breaking changes
+
+- **Python 3.11 or later is required** (was 3.10, which reached end of life in
+  October 2026). Tested on 3.11 to 3.14; release builds use Python 3.14.
+
+### Added
+
+- **Android adaptive icons.** The `android` profile now also writes the
+  `ic_launcher_foreground` and `ic_launcher_monochrome` layers for every density
+  (artwork, corners included, inside the 66 dp safe circle),
+  `mipmap-anydpi-v26/ic_launcher.xml` and
+  `ic_launcher_round.xml`, `values/ic_launcher_background.xml` with the background
+  colour, and a round legacy `ic_launcher_round` icon. The monochrome layer gives
+  Android 13 themed icons. One export now writes 24 files instead of 6.
+- **16 px image in macOS `.icns`.** Pixport writes the container itself with every
+  element `iconutil` produces, 16 to 1024 px, instead of Pillow's writer, which had
+  no 16 px slot.
+
+### Changed
+
+- **Previews render off the UI thread.** Dragging a slider over a heavy SVG no
+  longer stalls the window; only the newest pending preview is rendered.
+- **Code signing is out of scope for good.** Docs say so instead of "not yet".
+
 ## [2.0.1] - 2026-11-21
 
 ### Fixed
@@ -126,6 +152,7 @@ PNG sets, and desktop, phone and tablet wallpapers. A later quality pass added s
 lint and type configuration, 12 tests, and fixes for three PNG-input defects (zoom and
 padding ignored, opaque background composited onto black, invalid `.iconset` names) in July 2026.
 
-[Unreleased]: https://github.com/RandyNorthrup/pixport/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/RandyNorthrup/pixport/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.1.0
 [2.0.1]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.0.1
 [2.0.0]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.0.0
