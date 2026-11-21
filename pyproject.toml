@@ -1,80 +1,132 @@
-# Tool configuration only — deliberately no [project] or [build-system] table,
-# because this is a single-file application run directly, not an installable
-# package. Adding packaging metadata would change how pip treats the directory.
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pixport"
+dynamic = ["version"]
+description = "Export one image to any format, size, screen or platform: convert and resize SVG or raster images, build Windows, macOS, Linux, Android, iOS and web icon sets, and make wallpapers."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Randy Northrup" }]
+requires-python = ">=3.10"
+keywords = [
+    "svg", "png", "image-converter", "icon-generator", "ico", "icns", "favicon",
+    "app-icons", "wallpaper", "resize", "pyside6", "resvg",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications :: Qt",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "Typing :: Typed",
+]
+dependencies = [
+    # colorScheme / colorSchemeChanged (system light-dark theme) arrived in 6.5.
+    "PySide6>=6.5",
+    # append_images for multi-frame ICO and ICNS writing.
+    "Pillow>=10.1",
+    # resvg SVG renderer; ships wheels with no system libraries to install.
+    "resvg-py>=0.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=6",
+    "ruff>=0.17",
+    "mypy>=2.4",
+    "vulture>=2.14",
+    "bandit[toml]>=1.9",
+    "pip-audit>=2.9",
+]
+build = ["pyinstaller>=6.22"]
+
+[project.scripts]
+pixport = "pixport.cli:main"
+
+[project.gui-scripts]
+pixport-gui = "pixport.gui.app:main"
+
+[project.urls]
+Homepage = "https://github.com/RandyNorthrup/pixport"
+Download = "https://github.com/RandyNorthrup/pixport/releases/latest"
+Issues = "https://github.com/RandyNorthrup/pixport/issues"
+Changelog = "https://github.com/RandyNorthrup/pixport/blob/main/CHANGELOG.md"
+Funding = "https://github.com/sponsors/RandyNorthrup"
+
+[tool.setuptools.dynamic]
+version = { attr = "pixport.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pixport = ["assets/*.png", "assets/*.svg", "py.typed"]
+
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 100
+src = ["src", "tests"]
+extend-exclude = ["packaging/*.spec"]
 
 [tool.ruff.lint]
 select = ["ALL"]
-
 ignore = [
-    # ── formatter conflicts (ruff's own recommendation) ──────────────────
-    "COM812",  # trailing comma missing — the formatter owns this
-    "ISC001",  # single-line implicit string concat — same
-
-    # ── mutually exclusive docstring rules; keeping D211 + D212 ──────────
+    # Formatter conflicts (ruff's own recommendation).
+    "COM812",
+    "ISC001",
+    # Mutually exclusive docstring rules; D211 + D212 are kept.
     "D203",
     "D213",
-
-    # ── PySide6/Qt idioms. These fire on correct Qt code, not on defects ──
-    # Qt slots receive signal arguments they are not required to use;
-    # renaming them to _ would break readability against the Qt docs.
-    "ARG001",
+    # Qt slots receive signal arguments they need not use.
     "ARG002",
-    # Qt widget constructors and paint helpers legitimately take many
-    # parameters (size, zoom, padding, transparency, colour, ...). Splitting
-    # them into a config object would obscure the mapping to the Qt API.
-    "PLR0913",  # too many arguments
-    "PLR0917",  # too many positional arguments
-    # Qt's API takes positional booleans throughout (setVisible(True), etc.).
-    # Rewriting call sites to keyword form is not possible for Qt methods.
+    # Qt's API takes positional booleans (setVisible(True), blockSignals(True)).
     "FBT001",
     "FBT002",
     "FBT003",
-
-    # ── application-level, not library ───────────────────────────────────
-    "D100",  # module docstring — single-file app, README covers it
-    "D104",  # package docstring — no packages here
-    "T201",  # print() is legitimate CLI feedback in this tool
-    "EM101",  # exception message as string literal — readable inline here
-    "EM102",  # f-string in exception — same
-    "TRY003",  # long message outside exception class — no custom hierarchy
-
-    # Copyright is asserted once in LICENSE. A per-file header adds no legal
-    # weight to a single-file application and would need updating every year.
+    # Application, not library.
+    "T201",   # print() is the CLI's output
+    "EM101",  # exception message as a literal reads better inline
+    "EM102",
+    "TRY003",
+    # Copyright is asserted once in LICENSE.
     "CPY001",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"svg_converter.py" = [
-    # subprocess use is reviewed and justified — see the S603/S607 note in
-    # PLAN.md. Calls use list form (never shell=True) and invoke a macOS
-    # system binary with paths from QFileDialog.
-    "S603",
-    "S607",
-
-    # DEFERRED, NOT ACCEPTED. `__init__` (69 statements) and `on_create`
-    # (119 statements, complexity 43) exceed the thresholds. Both are long
-    # for the same structural reason: __init__ builds the whole Qt widget
-    # tree inline, and on_create dispatches across every export profile with
-    # a nested helper per profile.
-    #
-    # Splitting them is a real refactor with real regression risk in code
-    # that has no test suite, so it is tracked in PLAN.md rather than done
-    # blind. Remove these three ignores once the extraction lands.
-    "C901",
-    "PLR0912",
-    "PLR0915",
-]
-
 "tests/*.py" = [
-    "S101",     # assert is the entire point of pytest
-    "PLC0415",  # local imports keep Qt out of module scope until the app exists
-    "D103",     # test names describe the case; a docstring would restate them
+    "S101",     # assert is the point of pytest
+    "PLR2004",  # pixel sizes in tests are the expectation, not magic
+    "D103",     # test names describe the case
     "INP001",   # tests/ is intentionally not a package
-    "TC003",    # runtime imports needed by pytest fixtures, not just typing
+    "PLC0415",  # local imports keep Qt out of non-GUI tests
+    "ANN401",
+    "SLF001",   # tests may inspect private widget state
+    "TC001",    # runtime imports keep fixtures and annotations readable
+    "TC002",
+    "TC003",
+]
+"{tools,packaging}/*.py" = [
+    "INP001",   # scripts, not a package
+    "E402",     # environment must be set before Qt is imported
+]
+"src/pixport/gui/*.py" = [
+    "N802",     # Qt method overrides are camelCase by definition
+    "PLR0915",  # _build_sidebar lays out one panel top to bottom; splitting hides the order
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -88,26 +140,39 @@ docstring-code-format = true
 
 
 [tool.mypy]
-# 3.10 is the floor mypy still supports; the code itself targets 3.9+ and
-# ruff enforces that separately via target-version.
 python_version = "3.10"
+mypy_path = "src"
+packages = ["pixport"]
 strict = true
 warn_unreachable = true
-strict_equality = true
 show_error_codes = true
 pretty = true
 
-# PySide6 ships partial stubs; cairosvg and PIL plugins have none. Untyped
-# imports are allowed for these three only — everything else must be typed.
-ignore_missing_imports = false
-
 [[tool.mypy.overrides]]
-module = ["cairosvg.*", "PySide6.*", "PIL.*"]
+# resvg-py ships no type information.
+module = ["resvg_py"]
 ignore_missing_imports = true
 
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = ["error"]
+
+
+[tool.coverage.run]
+source = ["pixport"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+
+[tool.vulture]
+paths = ["src/pixport", "tests/vulture_allowlist.py"]
+min_confidence = 60
+
+
 [tool.bandit]
-exclude_dirs = [".git", "__pycache__", "build", "dist"]
-# B404/B603/B607 relate to the reviewed `iconutil` subprocess call on macOS.
-# Justification is recorded in PLAN.md rather than suppressed silently.
-skips = []
+exclude_dirs = [".git", ".venv", "build", "dist", "tests"]
