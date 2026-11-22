@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-21
+
+### Fixed
+
+- **macOS `.icns` now matches `iconutil` exactly.** 2.1.0 also wrote an `icp6`
+  element with a 64 px image; Apple's `iconutil` reads `icp6` as 48 px and scaled it
+  down. The element is gone; 64 px is still provided as 32 pt @2x. Found by
+  converting a Pixport `.icns` with `iconutil` on macOS 15.7.
+
 ## [2.1.0] - 2026-11-21
 
 ### Breaking changes
@@ -152,7 +161,8 @@ PNG sets, and desktop, phone and tablet wallpapers. A later quality pass added s
 lint and type configuration, 12 tests, and fixes for three PNG-input defects (zoom and
 padding ignored, opaque background composited onto black, invalid `.iconset` names) in July 2026.
 
-[Unreleased]: https://github.com/RandyNorthrup/pixport/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/RandyNorthrup/pixport/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.1.1
 [2.1.0]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.1.0
 [2.0.1]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.0.1
 [2.0.0]: https://github.com/RandyNorthrup/pixport/releases/tag/v2.0.0
