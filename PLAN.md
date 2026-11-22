@@ -1,7 +1,7 @@
 # PLAN
 
 Design decisions, quality baseline and known limitations for Pixport. Updated for
-2.1.0 (2026-11-21).
+2.1.1 (2026-11-21).
 
 ## Quality gates
 

@@ -94,9 +94,7 @@ def test_macos_icns_sizes(square_svg: Path, out_dir: Path) -> None:
     with Image.open(path) as icns:
         slots = set(icns.info["sizes"])
     # Every point size at 1x and 2x, including the 16 px image Pillow's writer omits.
-    assert slots == {(pt, pt, sc) for pt in (16, 32, 128, 256, 512) for sc in (1, 2)} | {
-        (64, 64, 1)
-    }
+    assert slots == {(pt, pt, sc) for pt in (16, 32, 128, 256, 512) for sc in (1, 2)}
 
 
 def test_icns_container_layout(square_svg: Path, out_dir: Path) -> None:

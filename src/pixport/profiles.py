@@ -33,13 +33,13 @@ Progress = Callable[[int, int], None]
 # ── size tables ─────────────────────────────────────────────────────────────
 
 WINDOWS_ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
-#: ICNS element types and their pixel size: the PNG-based set iconutil writes,
-#: covering 16 to 512 pt at 1x and 2x (macOS 10.7 and later).
+#: ICNS element types and their pixel size: exactly the PNG set iconutil writes,
+#: 16 to 512 pt at 1x and 2x (macOS 10.7 and later). icp6 is left out on purpose:
+#: iconutil reads it as 48 px, so a 64 px image there would be scaled down.
 ICNS_ELEMENTS = (
     (b"icp4", 16),
     (b"icp5", 32),
     (b"ic11", 32),  # 16 pt @2x
-    (b"icp6", 64),
     (b"ic12", 64),  # 32 pt @2x
     (b"ic07", 128),
     (b"ic08", 256),
